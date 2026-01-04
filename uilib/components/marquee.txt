@@ -1,0 +1,675 @@
+--@name UILib Marquee
+--@author soldnotsold
+--@client
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+local table = table
+local math = math
+local render = render
+
+--[[
+Marquee
+]]--
+
+
+-- Base Marquee class
+---@class UILib.Marquee: UILib.Component
+UILib.Marquee = class("Marquee", UILib.Component)
+
+function UILib.Marquee:initialize(w, h, screen)
+    UILib.Component.initialize(self, 0, 0, w, h, false, screen)
+    
+    self.speed = UILib.Skin.Marquee.speed
+    self.direction = UILib.Skin.Marquee.direction
+    self.gap = UILib.Skin.Marquee.gap
+    self.fadeEdges = UILib.Skin.Marquee.fadeEdges
+    self.fadeWidth = UILib.Skin.Marquee.fadeWidth
+    self.smoothScrolling = UILib.Skin.Marquee.smoothScrolling
+    
+    self.offset = 0
+    self.lastUpdate = timer.systime()
+    self.paused = false
+    self.loop = true
+    self.bounce = false
+    self.bounceDirection = 1
+    
+    self.backgroundColor = UILib.Skin.Marquee.backgroundColor
+    
+    self.onLoopComplete = nil
+    
+    if self.class.name == "Marquee" then
+        error("Use TextMarquee or ComponentMarquee instead")
+    end
+end
+
+function UILib.Marquee:setSpeed(speed)
+    self.speed = speed
+    return self
+end
+
+function UILib.Marquee:setDirection(direction)
+    local validDirections = {"left", "right", "up", "down"}
+    local isValid = false
+    for _, dir in ipairs(validDirections) do
+        if direction == dir then
+            isValid = true
+            break
+        end
+    end
+    
+    if not isValid then
+        error("Direction must be one of 'left', 'right', 'up', 'down'")
+    end
+    
+    self.direction = direction
+    self.offset = 0
+    return self
+end
+
+function UILib.Marquee:setGap(gap)
+    self.gap = gap
+    return self
+end
+
+function UILib.Marquee:setFadeEdges(enabled)
+    self.fadeEdges = enabled
+    return self
+end
+
+function UILib.Marquee:setFadeWidth(width)
+    self.fadeWidth = width
+    return self
+end
+
+function UILib.Marquee:setSmoothScrolling(enabled)
+    self.smoothScrolling = enabled
+    return self
+end
+
+function UILib.Marquee:setPaused(paused)
+    self.paused = paused
+    if not paused then
+        self.lastUpdate = timer.systime()
+    end
+    return self
+end
+
+function UILib.Marquee:setLoop(loop)
+    self.loop = loop
+    return self
+end
+
+function UILib.Marquee:setBounce(bounce)
+    self.bounce = bounce
+    self.bounceDirection = 1
+    return self
+end
+
+function UILib.Marquee:reset()
+    self.offset = 0
+    self.lastUpdate = timer.systime()
+    self.bounceDirection = 1
+    return self
+end
+
+function UILib.Marquee:updateAnimation()
+    if self.paused then return end
+    
+    local currentTime = timer.systime()
+    local deltaTime = currentTime - self.lastUpdate
+    self.lastUpdate = currentTime
+    
+    local deltaOffset = self.speed * deltaTime
+    
+    local contentDimension = self:getContentDimension()
+    
+    if self.bounce then
+        self.offset = self.offset + deltaOffset * self.bounceDirection
+        
+        local maxOffset = contentDimension + self.gap
+        
+        if self.offset >= maxOffset then
+            self.offset = maxOffset
+            self.bounceDirection = -1
+        elseif self.offset <= 0 then
+            self.offset = 0
+            self.bounceDirection = 1
+        end
+    else
+        self.offset = self.offset + deltaOffset
+        
+        if self.loop then
+            local maxOffset = contentDimension + self.gap
+            
+            if self.offset >= maxOffset then
+                self.offset = self.offset - maxOffset
+                if self.onLoopComplete then
+                    self:onLoopComplete()
+                end
+            end
+        end
+    end
+end
+
+function UILib.Marquee:getContentDimension()
+end
+
+function UILib.Marquee:drawContent()
+end
+
+function UILib.Marquee:calculateFadeAlpha(position, size)
+end
+
+function UILib.Marquee:_draw()
+    self:updateAnimation()
+    
+    if self.backgroundColor.a > 0 then
+        render.setColor(self.backgroundColor)
+        render.drawRect(self.x, self.y, self.w, self.h)
+    end
+    
+    render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)
+    
+    if self.fadeEdges then
+        self:drawWithFadeEdges()
+    else
+        self:drawContent()
+    end
+    
+    render.disableScissorRect()
+end
+
+function UILib.Marquee:drawWithFadeEdges()
+    self:drawContentWithFade()
+end
+
+function UILib.Marquee:drawContentWithFade()
+end
+
+function UILib.Marquee:getProgress()
+    local contentDimension = self:getContentDimension()
+    local maxOffset = contentDimension + self.gap
+    
+    if self.bounce then
+        return self.offset / maxOffset
+    else
+        return (self.offset % maxOffset) / maxOffset
+    end
+end
+
+function UILib.Marquee:isPlaying()
+    return not self.paused
+end
+
+function UILib.Marquee:play()
+    return self:setPaused(false)
+end
+
+function UILib.Marquee:stop()
+    return self:setPaused(true)
+end
+
+function UILib.Marquee:togglePlay()
+    return self:setPaused(not self.paused)
+end
+
+
+---@class UILib.TextMarquee: UILib.Marquee
+UILib.TextMarquee = class("TextMarquee", UILib.Marquee)
+
+function UILib.TextMarquee:initialize(w, h, screen)
+    UILib.Marquee.initialize(self, w, h, screen)
+    
+    self.text = ""
+    self.font = UILib.Skin.TextMarquee.font
+    self.textColor = UILib.Skin.TextMarquee.textColor
+    self.spacing = UILib.Skin.TextMarquee.spacing
+    
+    self.onTextChange = nil
+end
+
+function UILib.TextMarquee:setText(text)
+    local oldText = self.text
+    self.text = text or ""
+    self:reset()
+    
+    if self.onTextChange then
+        self:onTextChange(text, oldText)
+    end
+    
+    return self
+end
+
+function UILib.TextMarquee:setFont(font)
+    self.font = font
+    return self
+end
+
+function UILib.TextMarquee:setTextColor(color)
+    self.textColor = color
+    return self
+end
+
+function UILib.TextMarquee:setSpacing(spacing)
+    self.spacing = spacing
+    return self
+end
+
+function UILib.TextMarquee:getContentDimension()
+    if self.text == "" then return 0 end
+    if self.font then render.setFont(self.font) end
+    local textWidth, textHeight = render.getTextSize(self.text)
+    if self.direction == "left" or self.direction == "right" then
+        return textWidth
+    else
+        return textHeight
+    end
+end
+
+function UILib.TextMarquee:calculateFadeAlpha(position, size)
+    if not self.fadeEdges then return 255 end
+    
+    local width, height = size[1], size[2]
+    local alpha = 255
+    
+    if self.direction == "left" then
+        if position < self.x + self.fadeWidth then
+            local fade = (position - self.x) / self.fadeWidth
+            alpha = math.min(alpha, fade * 255)
+        end
+    elseif self.direction == "right" then
+        if position + width > self.x + self.w - self.fadeWidth then
+            local fade = (self.x + self.w - position - width) / self.fadeWidth
+            alpha = math.min(alpha, fade * 255)
+        end
+    elseif self.direction == "up" then
+        if position < self.y + self.fadeWidth then
+            local fade = (position - self.y) / self.fadeWidth
+            alpha = math.min(alpha, fade * 255)
+        end
+    elseif self.direction == "down" then
+        if position + height > self.y + self.h - self.fadeWidth then
+            local fade = (self.y + self.h - position - height) / self.fadeWidth
+            alpha = math.min(alpha, fade * 255)
+        end
+    end
+    
+    return math.max(0, math.floor(alpha))
+end
+
+function UILib.TextMarquee:drawContent()
+    if self.text == "" then return end
+    
+    if self.font then render.setFont(self.font) end
+    render.setColor(self.textColor)
+    
+    local textWidth, textHeight = render.getTextSize(self.text)
+    local baseY = self.y + (self.h - textHeight) / 2
+    
+    if self.direction == "left" or self.direction == "right" then
+        local numCopies = math.ceil(self.w / (textWidth + self.gap)) + 1
+        
+        for i = 1, numCopies do
+            local x = self.x + (i - 1) * (textWidth + self.gap) - self.offset
+            
+            if x + textWidth >= self.x and x <= self.x + self.w then
+                render.drawText(x, baseY, self.text)
+            end
+        end
+    else
+        local numCopies = math.ceil(self.h / (textHeight + self.gap)) + 1
+        
+        for i = 1, numCopies do
+            local y = self.y + (i - 1) * (textHeight + self.gap) - self.offset
+            
+            if y + textHeight >= self.y and y <= self.y + self.h then
+                render.drawText(self.x, y, self.text)
+            end
+        end
+    end
+end
+
+function UILib.TextMarquee:drawContentWithFade()
+    if self.text == "" then return end
+    
+    if self.font then render.setFont(self.font) end
+    
+    local textWidth, textHeight = render.getTextSize(self.text)
+    local baseY = self.y + (self.h - textHeight) / 2
+    
+    if self.direction == "left" or self.direction == "right" then
+        local numCopies = math.ceil(self.w / (textWidth + self.gap)) + 1
+        
+        for i = 1, numCopies do
+            local x = self.x + (i - 1) * (textWidth + self.gap) - self.offset
+            
+            local fadeAlpha = self:calculateFadeAlpha(x, {textWidth, textHeight})
+            
+            if fadeAlpha > 0 then
+                local color = Color(self.textColor.r, self.textColor.g, self.textColor.b, fadeAlpha)
+                render.setColor(color)
+                
+                if x + textWidth >= self.x and x <= self.x + self.w then
+                    render.drawText(x, baseY, self.text)
+                end
+            end
+        end
+    else
+        local numCopies = math.ceil(self.h / (textHeight + self.gap)) + 1
+        
+        for i = 1, numCopies do
+            local y = self.y + (i - 1) * (textHeight + self.gap) - self.offset
+            
+            local fadeAlpha = self:calculateFadeAlpha(y, {textWidth, textHeight})
+            
+            if fadeAlpha > 0 then
+                local color = Color(self.textColor.r, self.textColor.g, self.textColor.b, fadeAlpha)
+                render.setColor(color)
+                
+                if y + textHeight >= self.y and y <= self.y + self.h then
+                    render.drawText(self.x, y, self.text)
+                end
+            end
+        end
+    end
+end
+
+function UILib.TextMarquee:getText()
+    return self.text
+end
+
+-- Marquee for scrolling Components
+---@class UILib.ComponentMarquee: UILib.Marquee
+UILib.ComponentMarquee = class("ComponentMarquee", UILib.Marquee)
+
+function UILib.ComponentMarquee:initialize(w, h, screen)
+    UILib.Marquee.initialize(self, w, h, screen)
+    
+    self.components = {}
+    self.componentInstances = {}
+    self.contentWidth = 0
+    self.contentHeight = 0
+    self.spacing = 0
+    
+    self.onContentChange = nil
+end
+
+function UILib.ComponentMarquee:setComponents(components)
+    if not components then components = {} end
+    
+    self:clearComponents()
+    
+    self.components = components
+    self:createComponentInstances()
+    self:calculateContentDimensions()
+    self:reset()
+    
+    if self.onContentChange then
+        self:onContentChange(self.components)
+    end
+    
+    return self
+end
+
+function UILib.ComponentMarquee:addComponent(component)
+    if not component then return self end
+    
+    table.insert(self.components, component)
+    self:createComponentInstance(component, #self.components)
+    self:calculateContentDimensions()
+    
+    return self
+end
+
+function UILib.ComponentMarquee:removeComponent(index)
+    if index < 1 or index > #self.components then return self end
+    
+    if self.componentInstances[index] and self.componentInstances[index].destroy then
+        self.componentInstances[index]:destroy()
+    end
+    table.remove(self.componentInstances, index)
+    table.remove(self.components, index)
+    
+    self:calculateContentDimensions()
+    
+    return self
+end
+
+function UILib.ComponentMarquee:clearComponents()
+    for _, instance in ipairs(self.componentInstances) do
+        if instance and instance.destroy then
+            instance:destroy()
+        end
+    end
+    self.componentInstances = {}
+    self.components = {}
+    self.contentWidth = 0
+    self.contentHeight = 0
+    
+    return self
+end
+
+function UILib.ComponentMarquee:setSpacing(spacing)
+    self.spacing = spacing
+    self:calculateContentDimensions()
+    return self
+end
+
+function UILib.ComponentMarquee:createComponentInstances()
+    for i, component in ipairs(self.components) do
+        self:createComponentInstance(component, i)
+    end
+end
+
+function UILib.ComponentMarquee:createComponentInstance(component, index)
+    if not component then return end
+    
+    if component:isInstanceOf(UILib.Component) then
+        self.componentInstances[index] = component
+        component:setParent(self)
+        component:enableClipping(false)
+    else
+
+        error("ComponentMarquee supports Component(s) only")
+    end
+end
+
+function UILib.ComponentMarquee:calculateContentDimensions()
+    self.contentWidth = 0
+    self.contentHeight = 0
+    
+    if #self.components == 0 then return end
+    
+    if self.direction == "left" or self.direction == "right" then
+        for i, instance in ipairs(self.componentInstances) do
+            if instance then
+                self.contentWidth = self.contentWidth + instance.w
+                if i < #self.componentInstances then
+                    self.contentWidth = self.contentWidth + self.spacing
+                end
+                self.contentHeight = math.max(self.contentHeight, instance.h)
+            end
+        end
+    else
+        for i, instance in ipairs(self.componentInstances) do
+            if instance then
+                self.contentHeight = self.contentHeight + instance.h
+                if i < #self.componentInstances then
+                    self.contentHeight = self.contentHeight + self.spacing
+                end
+                self.contentWidth = math.max(self.contentWidth, instance.w)
+            end
+        end
+    end
+end
+
+function UILib.ComponentMarquee:getContentDimension()
+    if self.direction == "left" or self.direction == "right" then
+        return self.contentWidth
+    else
+        return self.contentHeight
+    end
+end
+
+function UILib.ComponentMarquee:calculateFadeAlpha(position, size)
+    if not self.fadeEdges then return 255 end
+    
+    local width, height = size[1], size[2]
+    local alpha = 255
+    
+    if self.direction == "left" then
+        if position < self.x + self.fadeWidth then
+            local fade = (position - self.x) / self.fadeWidth
+            alpha = math.min(alpha, fade * 255)
+        end
+    elseif self.direction == "right" then
+        if position + width > self.x + self.w - self.fadeWidth then
+            local fade = (self.x + self.w - position - width) / self.fadeWidth
+            alpha = math.min(alpha, fade * 255)
+        end
+    elseif self.direction == "up" then
+        if position < self.y + self.fadeWidth then
+            local fade = (position - self.y) / self.fadeWidth
+            alpha = math.min(alpha, fade * 255)
+        end
+    elseif self.direction == "down" then
+        if position + height > self.y + self.h - self.fadeWidth then
+            local fade = (self.y + self.h - position - height) / self.fadeWidth
+            alpha = math.min(alpha, fade * 255)
+        end
+    end
+    
+    return math.max(0, math.floor(alpha))
+end
+function UILib.ComponentMarquee:drawChildren() end --do not remove
+
+function UILib.ComponentMarquee:drawContent()
+    if #self.componentInstances == 0 then return end
+    
+    if self.direction == "left" or self.direction == "right" then
+        self:drawHorizontalComponents()
+    else
+        self:drawVerticalComponents()
+    end
+end
+
+function UILib.ComponentMarquee:drawHorizontalComponents()
+    local currentX = self.x - self.offset
+    
+    for i, instance in ipairs(self.componentInstances) do
+        if instance then
+            local componentX = currentX
+            local componentY = self.y + (self.h - instance.h) / 2
+            
+            if componentX + instance.w >= self.x and componentX <= self.x + self.w then
+                instance:setPos(componentX, componentY, true)
+                render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)
+                
+                instance:__draw()
+            end
+            
+            currentX = currentX + instance.w + self.spacing
+        end
+    end
+    
+    if self.loop and self.contentWidth > 0 then
+        local totalWidth = self.contentWidth + self.gap
+        local numCopies = math.ceil(self.w / totalWidth) + 1
+        
+        for copy = 1, numCopies do
+            currentX = self.x + (copy - 1) * totalWidth - self.offset
+            
+            for i, instance in ipairs(self.componentInstances) do
+                if instance then
+                    local componentX = currentX
+                    local componentY = self.y + (self.h - instance.h) / 2
+                    
+                    if componentX + instance.w >= self.x and componentX <= self.x + self.w then
+                        instance:setPos(componentX, componentY, true)
+                        render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)                
+                        instance:__draw()
+                    end
+                    
+                    currentX = currentX + instance.w + self.spacing
+                end
+            end
+        end
+    end
+end
+
+function UILib.ComponentMarquee:drawVerticalComponents()
+    local currentY = self.y - self.offset
+    
+    for i, instance in ipairs(self.componentInstances) do
+        if instance then
+            local componentX = self.x + (self.w - instance.w) / 2
+            local componentY = currentY
+            
+            if componentY + instance.h >= self.y and componentY <= self.y + self.h then
+                instance:setPos(componentX, componentY, true)
+                render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)                
+                instance:__draw()
+            end
+            
+            currentY = currentY + instance.h + self.spacing
+        end
+    end
+    
+    if self.loop and self.contentHeight > 0 then
+        local totalHeight = self.contentHeight + self.gap
+        local numCopies = math.ceil(self.h / totalHeight) + 1
+        
+        for copy = 1, numCopies do
+            currentY = self.y + (copy - 1) * totalHeight - self.offset
+            
+            for i, instance in ipairs(self.componentInstances) do
+                if instance then
+                    local componentX = self.x + (self.w - instance.w) / 2
+                    local componentY = currentY
+                    
+                    if componentY + instance.h >= self.y and componentY <= self.y + self.h then
+                        instance:setPos(componentX, componentY, true)
+                        render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)                                
+                        instance:__draw()
+                    end
+                    
+                    currentY = currentY + instance.h + self.spacing
+                end
+            end
+        end
+    end
+end
+
+function UILib.ComponentMarquee:drawContentWithFade()
+    if #self.componentInstances == 0 then return end
+    
+    if self.direction == "left" or self.direction == "right" then
+        self:drawHorizontalComponentsWithFade()
+    else
+        self:drawVerticalComponentsWithFade()
+    end
+end
+
+function UILib.ComponentMarquee:drawHorizontalComponentsWithFade()
+    self:drawHorizontalComponents() //TODO
+end
+
+function UILib.ComponentMarquee:drawVerticalComponentsWithFade()
+    self:drawVerticalComponents() //TODO
+end
+
+function UILib.ComponentMarquee:getComponents()
+    return self.components
+end
+
+function UILib.ComponentMarquee:getComponentCount()
+    return #self.components
+end
+
+function UILib.ComponentMarquee:destroy()
+    self:clearComponents()
+    UILib.Marquee.destroy(self)
+end

@@ -1,0 +1,275 @@
+--@name UILib Checkbox
+--@author soldnotsold
+--@client
+--@include uilib/components/label.txt
+
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+if not UILib.Label then
+    require("uilib/components/label.txt")
+end
+
+local table = table
+local math = math
+local render = render
+
+--[[
+  _______           __    __           
+ / ___/ /  ___ ____/ /__ / /  ___ __ __
+/ /__/ _ \/ -_) __/  '_// _ \/ _ \\ \ /
+\___/_//_/\__/\__/_/\_\/_.__/\___/_\_\ 
+                                       
+]]--
+
+---@class UILib.Checkbox: UILib.Component
+UILib.Checkbox = class("Checkbox", UILib.Component)
+
+function UILib.Checkbox:initialize(text, screen)
+    self.size = UILib.Skin.Checkbox.size
+    UILib.Component.initialize(self, 0, 0, self.size, self.size, true, screen)
+    
+    self.checked = false
+    self.indeterminate = false
+    self.enabled = true
+    
+    self.backgroundColor = UILib.Skin.Checkbox.backgroundColor
+    self.backgroundHoverColor = UILib.Skin.Checkbox.backgroundHoverColor
+    self.borderColor = UILib.Skin.Checkbox.borderColor
+    self.borderHoverColor = UILib.Skin.Checkbox.borderHoverColor
+    self.checkColor = UILib.Skin.Checkbox.checkColor
+    self.checkHoverColor = UILib.Skin.Checkbox.checkHoverColor
+    self.borderWidth = UILib.Skin.Checkbox.borderWidth
+    self.cornerRadius = UILib.Skin.Checkbox.cornerRadius
+    self.textPadding = UILib.Skin.Checkbox.textPadding
+    
+    self.isHovered = false
+    self.isPressed = false
+    
+    self.label = UILib.Label:new(text, screen)
+    self.label:setParent(self)
+    self.label:setColor(UILib.Skin.Checkbox.textColor)
+    self.label:setFont(UILib.Skin.Checkbox.font)
+    
+    self:calculateSize()
+    
+    self.onValueChanged = nil
+end
+
+function UILib.Checkbox:calculateSize()
+    if self.label and self.label.text ~= "" then
+        self.label:recalculateSize()
+        self.fullWidth = self.size + self.textPadding + self.label.w
+        self.fullHeight = math.max(self.size, self.label.h)
+    else
+        self.fullWidth = self.size
+        self.fullHeight = self.size
+    end
+    
+    self.w = self.fullWidth
+    self.h = self.fullHeight
+    
+    if self.label then
+        self.label:setPos(self.size + self.textPadding, (self.fullHeight - self.label.h) / 2)
+    end
+end
+
+function UILib.Checkbox:setIcon(icon)
+    if not self.label then return end
+    return self.label:setIcon(icon)
+end
+
+function UILib.Checkbox:setText(text)
+    if self.label then
+        self.label:setText(text)
+        self:calculateSize()
+    end
+end
+
+function UILib.Checkbox:getText()
+    return self.label and self.label.text or ""
+end
+
+function UILib.Checkbox:setTextColor(color)
+    if self.label then
+        self.label:setColor(color)
+    end
+end
+
+function UILib.Checkbox:setFont(font)
+    if self.label then
+        self.label:setFont(font)
+        self:calculateSize()
+    end
+end
+
+function UILib.Checkbox:setChecked(checked, triggerCallback)
+    local oldValue = self.checked
+    self.checked = checked
+    self.indeterminate = false
+    
+    if triggerCallback ~= false and oldValue ~= checked and self.onValueChanged then
+        self:onValueChanged(checked, oldValue)
+    end
+end
+
+function UILib.Checkbox:setIndeterminate(indeterminate, triggerCallback)
+    local oldState = self:getState()
+    self.indeterminate = indeterminate
+    if indeterminate then
+        self.checked = false
+    end
+    
+    if triggerCallback ~= false and oldState ~= self:getState() and self.onValueChanged then
+        self:onValueChanged(self:getState(), oldState)
+    end
+end
+
+function UILib.Checkbox:toggle(triggerCallback)
+    if self.indeterminate then
+        self:setChecked(true, triggerCallback)
+    else
+        self:setChecked(not self.checked, triggerCallback)
+    end
+end
+
+function UILib.Checkbox:getChecked()
+    return self.checked
+end
+
+function UILib.Checkbox:getState()
+    if self.indeterminate then
+        return "indeterminate"
+    end
+    return self.checked and "checked" or "unchecked"
+end
+
+function UILib.Checkbox:setEnabled(enabled)
+    self.enabled = enabled
+    self.clickable = enabled
+    
+    if self.label then
+        self.label:setColor(enabled and UILib.Skin.Checkbox.textColor or Color(128, 128, 128))
+    end
+end
+
+function UILib.Checkbox:onMouseEnter(x, y)
+    if not self.enabled then return end
+    self.isHovered = true
+end
+
+function UILib.Checkbox:onMouseLeave(x, y)
+    self.isHovered = false
+    self.isPressed = false
+end
+
+function UILib.Checkbox:onMousePressed(x, y, button)
+    if not self.enabled or button ~= MOUSE.MOUSE2 then return false end
+    
+    self.isPressed = true
+    return true
+end
+
+function UILib.Checkbox:onMouseReleased(x, y, button)
+    if not self.enabled or button ~= MOUSE.MOUSE2 then return false end
+    
+    self:toggle(true)
+    self.isPressed = false
+    return true
+end
+
+function UILib.Checkbox:onClick(ply)
+    return true
+end
+
+function UILib.Checkbox:_draw()
+    local boxX = self.x
+    local boxY = self.y + (self.fullHeight - self.size) / 2
+    
+    local bgColor = self.backgroundColor
+    local borderColor = self.borderColor
+    local checkColor = self.checkColor
+    
+    if not self.enabled then
+        bgColor = Color(bgColor.r * 0.5, bgColor.g * 0.5, bgColor.b * 0.5, bgColor.a * 0.5)
+        borderColor = Color(borderColor.r * 0.5, borderColor.g * 0.5, borderColor.b * 0.5, borderColor.a * 0.5)
+        checkColor = Color(checkColor.r * 0.5, checkColor.g * 0.5, checkColor.b * 0.5, checkColor.a * 0.5)
+    elseif self.isHovered then
+        bgColor = self.backgroundHoverColor
+        borderColor = self.borderHoverColor
+        checkColor = self.checkHoverColor
+    end
+    
+    
+    render.setColor(borderColor)
+    if self.cornerRadius > 0 then
+        render.drawRoundedBox(self.cornerRadius, boxX, boxY, self.size, self.size)
+    else
+        render.drawRectOutline(boxX, boxY, self.size, self.size, self.borderWidth)
+    end
+
+    render.setColor(bgColor)
+    if self.cornerRadius > 0 then
+        render.drawRoundedBox(self.cornerRadius, boxX+self.borderWidth, boxY+self.borderWidth, self.size-self.borderWidth*2, self.size-self.borderWidth*2)
+    else
+        render.drawRect(boxX+self.borderWidth, boxY+self.borderWidth, self.size-self.borderWidth*2, self.size-self.borderWidth*2)
+    end
+
+    
+    if self.checked or self.indeterminate then
+        render.setColor(checkColor)
+        
+        if self.checked then
+            local padding = 3
+            local checkX1 = boxX + padding
+            local checkY1 = boxY + self.size / 2
+            local checkX2 = boxX + self.size / 2 - 1
+            local checkY2 = boxY + self.size - padding
+            local checkX3 = boxX + self.size - padding
+            local checkY3 = boxY + padding
+            
+            render.drawLine(checkX1, checkY1, checkX2, checkY2)
+            render.drawLine(checkX2, checkY2, checkX3, checkY3)
+        elseif self.indeterminate then
+            local padding = 4
+            local lineY = boxY + self.size / 2
+            render.drawLine(boxX + padding, lineY, boxX + self.size - padding, lineY)
+        end
+    end
+end
+
+function UILib.Checkbox:setSize(size)
+    self.size = size
+    self:calculateSize()
+end
+
+function UILib.Checkbox:setColors(background, border, check)
+    if background then self.backgroundColor = background end
+    if border then self.borderColor = border end
+    if check then self.checkColor = check end
+end
+
+function UILib.Checkbox:setHoverColors(background, border, check)
+    if background then self.backgroundHoverColor = background end
+    if border then self.borderHoverColor = border end
+    if check then self.checkHoverColor = check end
+end
+
+function UILib.Checkbox:setBorder(width, radius)
+    if width then self.borderWidth = width end
+    if radius then self.cornerRadius = radius end
+end
+
+function UILib.Checkbox:setTextPadding(padding)
+    self.textPadding = padding
+    self:calculateSize()
+end
+
+function UILib.Checkbox:destroy()
+    if self.label and self.label.destroy then
+        self.label:destroy()
+    end
+    UILib.Component.destroy(self)
+end

@@ -1,0 +1,373 @@
+--@name UILib Panel
+--@author soldnotsold
+--@client
+
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+local table = table
+local math = math
+local render = render
+
+
+
+--[[
+  ___               _ 
+ | _ \__ _ _ _  ___| |
+ |  _/ _` | ' \/ -_) |
+ |_| \__,_|_||_\___|_|
+
+--]]
+
+---@class UILib.Panel: UILib.Component
+UILib.Panel = class("Panel", UILib.Component)
+
+function UILib.Panel:initialize(w, h, screen)
+    UILib.Component.initialize(self, 6, 6, w, h, true, screen)
+    self.scrollable = false
+    self.scrollX = 0
+    self.scrollY = 0
+    self.maxScrollX = 0
+    self.maxScrollY = 0
+    self.scrollbarSize = UILib.Skin.Panel.scrollbarSize or 8 
+    self.scrollbarColor = UILib.Skin.Panel.scrollbarColor
+    self.scrollbarHoverColor = UILib.Skin.Panel.scrollbarHoverColor 
+    self.scrollbarActiveColor = UILib.Skin.Panel.scrollbarActiveColor 
+    self.cornerRadius = UILib.Skin.Panel.cornerRadius 
+    self.scrollbarCornerRadius = UILib.Skin.Panel.scrollbarCornerRadius
+    
+    self.isDraggingScrollbar = false
+    self.draggingScrollbarVertical = false
+    self.draggingScrollbarHorizontal = false
+    self.dragStartX = 0
+    self.dragStartY = 0
+    self.scrollStartX = 0
+    self.scrollStartY = 0
+    self.scrollSpeed = 20
+
+    self.backgroundColor = UILib.Skin.Panel.backgroundColor
+    
+end
+
+
+function UILib.Panel:setScrollable(state)
+    self.scrollable = state
+    if state then
+        self:updateScrollBounds()
+        self:applyScroll()
+    end
+end
+
+
+function UILib.Panel:updateScrollBounds()
+    if not self.scrollable or not self.children then 
+        self.maxScrollX = 0
+        self.maxScrollY = 0
+        return 
+    end
+    
+    local minX, minY = math.huge, math.huge
+    local maxX, maxY = -math.huge, -math.huge
+    
+    for _, child in ipairs(self.children) do
+        if not child.preventScrolling then
+            local childRelX = child.relX or (child.x - self.x)
+            local childRelY = child.relY or (child.y - self.y)
+            
+            minX = math.min(minX, childRelX)
+            minY = math.min(minY, childRelY)
+            maxX = math.max(maxX, childRelX + child.w)
+            maxY = math.max(maxY, childRelY + child.h)
+        end
+    end
+    
+    if minX == math.huge then
+        minX, minY, maxX, maxY = 0, 0, self.w, self.h
+    end
+    
+    local contentWidth = maxX - minX
+    local contentHeight = maxY - minY
+    
+    self.maxScrollX = math.max(0, contentWidth - self.w)
+    self.maxScrollY = math.max(0, contentHeight - self.h)
+    
+    self.scrollX = math.max(0, math.min(self.scrollX, self.maxScrollX))
+    self.scrollY = math.max(0, math.min(self.scrollY, self.maxScrollY))
+end
+
+function UILib.Panel:applyScroll()
+    if not self.scrollable then return end
+    
+    for _, child in ipairs(self.children) do
+        if not child.preventScrolling then
+            local originalRelX = child.originalRelX or (child.relX or (child.x - self.x))
+            local originalRelY = child.originalRelY or (child.relY or (child.y - self.y))
+            
+            if child.originalRelX == nil then
+                child.originalRelX = originalRelX
+                child.originalRelY = originalRelY
+            end
+            
+            child.relX = originalRelX - self.scrollX
+            child.relY = originalRelY - self.scrollY
+            
+            child.x = self.x + child.relX
+            child.y = self.y + child.relY
+            
+            child:updateChildrenPositions()
+        end
+    end
+end
+
+function UILib.Panel:scrollTo(x, y)
+    if not self.scrollable then return end
+    
+    local oldScrollX, oldScrollY = self.scrollX, self.scrollY
+    self.scrollX = math.max(0, math.min(x or self.scrollX, self.maxScrollX))
+    self.scrollY = math.max(0, math.min(y or self.scrollY, self.maxScrollY))
+    
+    if oldScrollX ~= self.scrollX or oldScrollY ~= self.scrollY then
+        self:applyScroll()
+    end
+end
+
+function UILib.Panel:scrollBy(dx, dy)
+    if not self.scrollable then return end
+    self:scrollTo(self.scrollX + (dx or 0), self.scrollY + (dy or 0))
+end
+
+function UILib.Panel:scrollToTop()
+    self:scrollTo(self.scrollX, 0)
+end
+
+function UILib.Panel:scrollToBottom()
+    self:scrollTo(self.scrollX, self.maxScrollY)
+end
+
+function UILib.Panel:scrollToLeft()
+    self:scrollTo(0, self.scrollY)
+end
+
+function UILib.Panel:scrollToRight()
+    self:scrollTo(self.maxScrollX, self.scrollY)
+end
+
+function UILib.Panel:isPointInScrollbar(x, y)
+    if not self.scrollable or (self.maxScrollX <= 0 and self.maxScrollY <= 0) then 
+        return false 
+    end
+    
+    local absX, absY = self:getAbsolutePos()
+    local mouseX, mouseY = x - absX, y - absY
+    
+    if self.maxScrollY > 0 then
+        local scrollbarHeight = math.max(20, self.h * (self.h / (self.h + self.maxScrollY)))
+        local scrollbarY = (self.scrollY / self.maxScrollY) * (self.h - scrollbarHeight)
+        local scrollbarX = self.w - self.scrollbarSize
+        
+        if mouseX >= scrollbarX and mouseX <= self.w and mouseY >= scrollbarY and mouseY <= scrollbarY + scrollbarHeight then
+            return true, "vertical"
+        end
+    end
+    
+    if self.maxScrollX > 0 then
+        local scrollbarWidth = math.max(20, self.w * (self.w / (self.w + self.maxScrollX)))
+        local scrollbarX = (self.scrollX / self.maxScrollX) * (self.w - scrollbarWidth)
+        local scrollbarY = self.h - self.scrollbarSize
+        
+        if mouseY >= scrollbarY and mouseY <= self.h and mouseX >= scrollbarX and mouseX <= scrollbarX + scrollbarWidth then
+            return true, "horizontal"
+        end
+    end
+    
+    return false
+end
+
+function UILib.Panel:onMousePressed(x, y, button)
+    if not self.scrollable then return false end
+    
+    local inScrollbar, scrollbarType = self:isPointInScrollbar(x, y)
+    if inScrollbar then
+        self.isDraggingScrollbar = true
+        self.draggingScrollbarVertical = (scrollbarType == "vertical")
+        self.draggingScrollbarHorizontal = (scrollbarType == "horizontal")
+        self.dragStartX = x
+        self.dragStartY = y
+        self.scrollStartX = self.scrollX
+        self.scrollStartY = self.scrollY
+        return true
+    end
+    
+    return false
+end
+
+function UILib.Panel:onMouseReleased(x, y, button)
+    if self.isDraggingScrollbar then
+        self.isDraggingScrollbar = false
+        self.draggingScrollbarVertical = false
+        self.draggingScrollbarHorizontal = false
+        return true
+    end
+    return false
+end
+
+function UILib.Panel:onMouseMoved(x, y)
+    if self.isDraggingScrollbar then
+        local deltaX = x - self.dragStartX
+        local deltaY = y - self.dragStartY
+        
+        if self.draggingScrollbarVertical and self.maxScrollY > 0 then
+            local scrollbarHeight = math.max(20, self.h * (self.h / (self.h + self.maxScrollY)))
+            local trackHeight = self.h - scrollbarHeight
+            if trackHeight > 0 then
+                local scrollRatio = deltaY / trackHeight
+                local newScrollY = math.max(0, math.min(self.scrollStartY + scrollRatio * self.maxScrollY, self.maxScrollY))
+                self:scrollTo(self.scrollX, newScrollY)
+            end
+        elseif self.draggingScrollbarHorizontal and self.maxScrollX > 0 then
+            local scrollbarWidth = math.max(20, self.w * (self.w / (self.w + self.maxScrollX)))
+            local trackWidth = self.w - scrollbarWidth
+            if trackWidth > 0 then
+                local scrollRatio = deltaX / trackWidth
+                local newScrollX = math.max(0, math.min(self.scrollStartX + scrollRatio * self.maxScrollX, self.maxScrollX))
+                self:scrollTo(newScrollX, self.scrollY)
+            end
+        end
+        return true
+    end
+    return false
+end
+
+function UILib.Panel:onMouseScroll(delta)
+    if not self.scrollable then return false end
+    
+    if input.isKeyDown(KEY.LSHIFT) or input.isKeyDown(KEY.RSHIFT) then
+        self:scrollBy(-delta * self.scrollSpeed, 0)
+    else
+        self:scrollBy(0, -delta * self.scrollSpeed)
+    end
+    return true
+end
+
+function UILib.Panel:drawChildren()
+
+    if not self.scrollable then
+        for _, child in ipairs(self.children) do
+            if not child:isInRenderBounds() then continue end            
+            child:__draw()
+        end
+        return
+    end
+    
+    
+    for _, child in ipairs(self.children) do
+        if not child:isInRenderBounds() then continue end            
+        
+        if self:isChildVisible(child) then
+            child:__draw()
+        end
+    end
+    
+    
+    self:drawScrollbars()
+end
+
+function UILib.Panel:isChildVisible(child)
+    if not self.scrollable then return true end
+    
+    if child.preventScrolling then
+        return child.x + child.w >= self.x and
+                child.x <= self.x + self.w and
+                child.y + child.h >= self.y and
+                child.y <= self.y + self.h
+    else
+        return child.x + child.w >= self.x and
+                child.x <= self.x + self.w and
+                child.y + child.h >= self.y and
+                child.y <= self.y + self.h
+    end
+end
+
+function UILib.Panel:drawScrollbars()
+    if not self.scrollable then return end
+    
+    local absX, absY = self:getAbsolutePos()
+    local mouseX, mouseY = input.getCursorPos()
+    local inScrollbar, scrollbarType = self:isPointInScrollbar(mouseX, mouseY)
+    
+    if self.maxScrollY > 0 then
+        local scrollbarHeight = math.max(20, self.h * (self.h / (self.h + self.maxScrollY)))
+        local scrollbarY = (self.scrollY / self.maxScrollY) * (self.h - scrollbarHeight)
+        local scrollbarX = self.w - self.scrollbarSize
+        
+        local color = self.scrollbarColor
+        if inScrollbar and scrollbarType == "vertical" then
+            color = self.isDraggingScrollbar and self.scrollbarActiveColor or self.scrollbarHoverColor
+        end
+        
+        render.setColor(color)
+        if self.scrollbarCornerRadius then
+            render.drawRoundedBox(self.scrollbarCornerRadius, absX + scrollbarX, absY + scrollbarY, self.scrollbarSize, scrollbarHeight)
+        else
+            render.drawRectFast(absX + scrollbarX, absY + scrollbarY, self.scrollbarSize, scrollbarHeight)
+        end
+    end
+    
+    if self.maxScrollX > 0 then
+        local scrollbarWidth = math.max(20, self.w * (self.w / (self.w + self.maxScrollX)))
+        local scrollbarX = (self.scrollX / self.maxScrollX) * (self.w - scrollbarWidth)
+        local scrollbarY = self.h - self.scrollbarSize
+        
+        local color = self.scrollbarColor
+        if inScrollbar and scrollbarType == "horizontal" then
+            color = self.isDraggingScrollbar and self.scrollbarActiveColor or self.scrollbarHoverColor
+        end
+        
+        render.setColor(color)
+        if self.scrollbarCornerRadius then
+            render.drawRoundedBox(self.scrollbarCornerRadius, absX + scrollbarX, absY + scrollbarY, scrollbarWidth, self.scrollbarSize)
+        else
+            render.drawRectFast(absX + scrollbarX, absY + scrollbarY, scrollbarWidth, self.scrollbarSize)
+        end
+    end
+end
+
+function UILib.Panel:addComponent(component)
+    UILib.Component.setParent(component, self)
+    
+    if self.scrollable then
+        self:updateScrollBounds()
+        self:applyScroll()
+    end
+end
+
+function UILib.Panel:removeComponent(component)
+    for i, child in ipairs(self.children) do
+        if child.id == component.id then
+            table.remove(self.children, i)
+            component.parent = nil
+            break
+        end
+    end
+    if self.scrollable then
+        self:updateScrollBounds()
+    end
+end
+
+function UILib.Panel:setPos(x, y, absolute)
+    UILib.Component.setPos(self, x, y, absolute)
+    if self.scrollable then
+        self:applyScroll()
+    end
+end
+
+function UILib.Panel:_draw()
+    render.setColor(self.backgroundColor)
+    if self.cornerRadius then
+        render.drawRoundedBoxEx(self.cornerRadius, self.x, self.y, self.w, self.h, self.roundedCorners.top_left, self.roundedCorners.top_right, self.roundedCorners.bottom_left, self.roundedCorners.bottom_right)
+    else
+        render.drawRectFast(self.x, self.y, self.w, self.h)
+    end
+end

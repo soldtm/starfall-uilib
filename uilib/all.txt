@@ -1,0 +1,7 @@
+--@name UILib AllInOne
+--@author soldnotsold
+--@client
+--@include uilib/base.txt
+--@includedir uilib/components
+require("uilib/base.txt")
+requiredir("uilib/components")

@@ -1,0 +1,1788 @@
+--@name UILib Base
+--@author soldnotsold
+--@includedir uilib/skins
+--@client
+
+local table = table
+local math = math
+local render = render
+
+function debugprint(...)
+    if not UILib.Debug.debugMode then return end
+    print(...)
+end
+
+UILib = {}
+UILib.components = {}
+UILib.rootComponents = {}
+UILib.pk = 0
+UILib.screenWidth = 512 --sf screen default //TODO
+UILib.screenHeight = 512 --sf screen default //TODO
+UILib.stencilEnabled = false 
+UILib.maxFPS = 144 //TODO
+UILib.nextFrame = 0    
+UILib.fpsDelta = 1 / UILib.maxFPS
+UILib.renderBounds = {nil,nil,nil,nil}
+UILib.Debug = {}
+UILib.Debug.debugMode = true
+UILib.Debug.drawComponentOutlines = false
+
+
+--[[ TODOS:
+multiscreen support
+name skin props same as component props
+unify init functions args
+listbox
+dock? (like derma)
+drawer 
+color picker components? render.readPixel(number x, number y)
+window resize?
+tooltips?
+dropdown component option proper size
+dropdown apply layout on option change (text shifted)
+scissor rect stack mgr
+]]
+
+--[[
+  ___   _     _        
+ / __| | |__ (_)  _ _  
+ \__ \ | / / | | | ' \ 
+ |___/ |_\_\ |_| |_||_|                      
+]]
+
+
+---Creates a new font if it's not already exists 
+function UILib.createFont(font, size, weight, antialias, additive, shadow, outline, blursize, extended, scanlines)
+    local sfName = string.format("sf_screen_font_%s_%d_%d_%d_%d%d%d%d%d",
+        font, size, weight, blursize,
+        antialias and 1 or 0,
+        additive and 1 or 0,
+        shadow and 1 or 0,
+        outline and 1 or 0,
+        extended and 1 or 0
+    )
+    
+    local exists, _err = pcall(function()
+        render.setFont(sfName)
+    end)
+    if exists then
+        return sfName 
+    end
+    
+    local createdFont = render.createFont(font, size, weight, antialias, additive, shadow, outline, blursize, extended, scanlines)
+    return createdFont
+end
+
+UILib.Skins = {
+    ["Modern Dark"] = require("uilib/skins/modern_dark.txt"),
+    ["Modern Light"] = require("uilib/skins/modern_light.txt"),
+    ["Metro"] = require("uilib/skins/metro.txt"),
+    ["Aero"] = require("uilib/skins/aero.txt"),
+    ["Win95"] = require("uilib/skins/win95.txt"),
+    ["Vending Proto"] = require("uilib/skins/vending.txt")
+}
+
+
+function UILib.setSkin(name)
+    local skin = UILib.Skins[name]
+    if not skin then return end
+    UILib.Skin = skin
+    for k,component in pairs(UILib.components) do
+        component:reloadSkinParameters()
+    end
+end
+
+UILib.Skin = UILib.Skins["Modern Dark"]
+
+---Sets all cornerRadius and tabCornerRadius skin values to 0
+function UILib.disableRoundedCorners()
+    for k,v in pairs(UILib.Skin) do
+        if UILib.Skin[k].cornerRadius then
+            UILib.Skin[k].cornerRadius = 0
+        end
+        if UILib.Skin[k].tabCornerRadius then
+            UILib.Skin[k].tabCornerRadius = 0
+        end
+    end
+end
+
+--[[
+  ___                _     _                 _ _ _           
+ |_ _|_ _  _ __ _  _| |_  | |_  __ _ _ _  __| | (_)_ _  __ _ 
+  | || ' \| '_ \ || |  _| | ' \/ _` | ' \/ _` | | | ' \/ _` |
+ |___|_||_| .__/\_,_|\__| |_||_\__,_|_||_\__,_|_|_|_||_\__, |
+          |_|                                          |___/ 
+]]
+
+-- Table to map KEY enum when shift is not pressed
+UILib.KeyToCharNormal = {
+    [KEY.KEY0] = "0",
+    [KEY.KEY1] = "1",
+    [KEY.KEY2] = "2",
+    [KEY.KEY3] = "3",
+    [KEY.KEY4] = "4",
+    [KEY.KEY5] = "5",
+    [KEY.KEY6] = "6",
+    [KEY.KEY7] = "7",
+    [KEY.KEY8] = "8",
+    [KEY.KEY9] = "9",
+    [KEY.A] = "a",
+    [KEY.B] = "b",
+    [KEY.C] = "c",
+    [KEY.D] = "d",
+    [KEY.E] = "e",
+    [KEY.F] = "f",
+    [KEY.G] = "g",
+    [KEY.H] = "h",
+    [KEY.I] = "i",
+    [KEY.J] = "j",
+    [KEY.K] = "k",
+    [KEY.L] = "l",
+    [KEY.M] = "m",
+    [KEY.N] = "n",
+    [KEY.O] = "o",
+    [KEY.P] = "p",
+    [KEY.Q] = "q",
+    [KEY.R] = "r",
+    [KEY.S] = "s",
+    [KEY.T] = "t",
+    [KEY.U] = "u",
+    [KEY.V] = "v",
+    [KEY.W] = "w",
+    [KEY.X] = "x",
+    [KEY.Y] = "y",
+    [KEY.Z] = "z",
+    [KEY.SPACE] = " ",
+    [KEY.LBRACKET] = "[",
+    [KEY.RBRACKET] = "]",
+    [KEY.SEMICOLON] = ";",
+    [KEY.APOSTROPHE] = "'",
+    [KEY.BACKQUOTE] = "`",
+    [KEY.COMMA] = ",",
+    [KEY.PERIOD] = ".",
+    [KEY.SLASH] = "/",
+    [KEY.BACKSLASH] = "\\",
+    [KEY.MINUS] = "-",
+    [KEY.EQUAL] = "=",
+    [KEY.PAD_0] = "0",
+    [KEY.PAD_1] = "1",
+    [KEY.PAD_2] = "2",
+    [KEY.PAD_3] = "3",
+    [KEY.PAD_4] = "4",
+    [KEY.PAD_5] = "5",
+    [KEY.PAD_6] = "6",
+    [KEY.PAD_7] = "7",
+    [KEY.PAD_8] = "8",
+    [KEY.PAD_9] = "9",
+    [KEY.PAD_DIVIDE] = "/",
+    [KEY.PAD_MULTIPLY] = "*",
+    [KEY.PAD_MINUS] = "-",
+    [KEY.PAD_PLUS] = "+",
+    [KEY.PAD_DECIMAL] = ".",
+    [KEY.PAD_ENTER] = "\n"
+}
+
+-- Map to key enum when shift is pressed
+UILib.KeyToCharShift = {
+    [KEY.KEY0] = ")",
+    [KEY.KEY1] = "!",
+    [KEY.KEY2] = "@",
+    [KEY.KEY3] = "#",
+    [KEY.KEY4] = "$",
+    [KEY.KEY5] = "%",
+    [KEY.KEY6] = "^",
+    [KEY.KEY7] = "&",
+    [KEY.KEY8] = "*",
+    [KEY.KEY9] = "(",
+    [KEY.A] = "A",
+    [KEY.B] = "B",
+    [KEY.C] = "C",
+    [KEY.D] = "D",
+    [KEY.E] = "E",
+    [KEY.F] = "F",
+    [KEY.G] = "G",
+    [KEY.H] = "H",
+    [KEY.I] = "I",
+    [KEY.J] = "J",
+    [KEY.K] = "K",
+    [KEY.L] = "L",
+    [KEY.M] = "M",
+    [KEY.N] = "N",
+    [KEY.O] = "O",
+    [KEY.P] = "P",
+    [KEY.Q] = "Q",
+    [KEY.R] = "R",
+    [KEY.S] = "S",
+    [KEY.T] = "T",
+    [KEY.U] = "U",
+    [KEY.V] = "V",
+    [KEY.W] = "W",
+    [KEY.X] = "X",
+    [KEY.Y] = "Y",
+    [KEY.Z] = "Z",
+    [KEY.LBRACKET] = "{",
+    [KEY.RBRACKET] = "}",
+    [KEY.SEMICOLON] = ":",
+    [KEY.APOSTROPHE] = "\"",
+    [KEY.BACKQUOTE] = "~",
+    [KEY.COMMA] = "<",
+    [KEY.PERIOD] = ">",
+    [KEY.SLASH] = "?",
+    [KEY.BACKSLASH] = "|",
+    [KEY.MINUS] = "_",
+    [KEY.EQUAL] = "+"
+}
+
+-- Table for states
+UILib.KeyboardState = {
+    capsLock = false,
+    numLock = false,
+    scrollLock = false
+}
+
+--- Control keys
+UILib.ControlKeys = {
+    [KEY.ENTER] = true,
+    [KEY.PAD_ENTER] = true,
+    [KEY.BACKSPACE] = true,
+    [KEY.TAB] = true,
+    [KEY.CAPSLOCK] = true,
+    [KEY.NUMLOCK] = true,
+    [KEY.ESCAPE] = true,
+    [KEY.SCROLLLOCK] = true,
+    [KEY.INSERT] = true,
+    [KEY.INS] = true,
+    [KEY.DELETE] = true,
+    [KEY.DEL] = true,
+    [KEY.HOME] = true,
+    [KEY.END] = true,
+    [KEY.PAGEUP] = true,
+    [KEY.PGUP] = true,
+    [KEY.PAGEDOWN] = true,
+    [KEY.PGDN] = true,
+    [KEY.PAUSE] = true,
+    [KEY.BREAK] = true,
+    [KEY.SHIFT] = true,
+    [KEY.LSHIFT] = true,
+    [KEY.RSHIFT] = true,
+    [KEY.ALT] = true,
+    [KEY.LALT] = true,
+    [KEY.RALT] = true,
+    [KEY.CTRL] = true,
+    [KEY.LCONTROL] = true,
+    [KEY.RCTRL] = true,
+    [KEY.RCONTROL] = true,
+    [KEY.LWIN] = true,
+    [KEY.RWIN] = true,
+    [KEY.APP] = true,
+    [KEY.UP] = true,
+    [KEY.UPARROW] = true,
+    [KEY.LEFT] = true,
+    [KEY.LEFTARROW] = true,
+    [KEY.DOWN] = true,
+    [KEY.DOWNARROW] = true,
+    [KEY.RIGHT] = true,
+    [KEY.RIGHTARROW] = true,
+    [KEY.F1] = true,
+    [KEY.F2] = true,
+    [KEY.F3] = true,
+    [KEY.F4] = true,
+    [KEY.F5] = true,
+    [KEY.F6] = true,
+    [KEY.F7] = true,
+    [KEY.F8] = true,
+    [KEY.F9] = true,
+    [KEY.F10] = true,
+    [KEY.F11] = true,
+    [KEY.F12] = true
+}
+
+--- Navigation keys
+UILib.NavigationKeys = {
+    [KEY.LEFT] = true,
+    [KEY.LEFTARROW] = true,
+    [KEY.RIGHT] = true,
+    [KEY.RIGHTARROW] = true,
+    [KEY.UP] = true,
+    [KEY.UPARROW] = true,
+    [KEY.DOWN] = true,
+    [KEY.DOWNARROW] = true,
+    [KEY.HOME] = true,
+    [KEY.END] = true,
+    [KEY.DELETE] = true,
+    [KEY.DEL] = true,
+    [KEY.INSERT] = true,
+    [KEY.INS] = true
+}
+
+--- Function to check if Shift is pressed
+local function isShiftPressed()
+    return input.isKeyDown(KEY.LSHIFT) or input.isKeyDown(KEY.RSHIFT)
+end
+
+--- Function to check if Ctrl is pressed
+local function isCtrlPressed()
+    return input.isKeyDown(KEY.LCONTROL) or input.isKeyDown(KEY.RCTRL) or input.isKeyDown(KEY.RCONTROL)
+end
+
+--- Function to check if Alt is pressed
+local function isAltPressed()
+    return input.isKeyDown(KEY.LALT) or input.isKeyDown(KEY.RALT)
+end
+
+--- Function to convert a key code to a text character
+
+function UILib.keyToText(keyCode)
+    if UILib.ControlKeys[keyCode] then
+        return nil
+    end
+    
+    local shiftPressed = isShiftPressed()
+    
+    local capsLockOn = UILib.KeyboardState.capsLock
+    
+    if keyCode >= KEY.A and keyCode <= KEY.Z then
+        if shiftPressed then
+            if capsLockOn then
+                return string.char(string.byte('a') + (keyCode - KEY.A))
+            else
+                return string.char(string.byte('A') + (keyCode - KEY.A))
+            end
+        else
+            if capsLockOn then
+                return string.char(string.byte('A') + (keyCode - KEY.A))
+            else
+                return string.char(string.byte('a') + (keyCode - KEY.A))
+            end
+        end
+    end
+    
+    if keyCode >= KEY.KEY0 and keyCode <= KEY.KEY9 then
+        if shiftPressed then
+            local shiftChar = UILib.KeyToCharShift[keyCode]
+            if shiftChar then
+                return shiftChar
+            end
+        else
+            local normalChar = UILib.KeyToCharNormal[keyCode]
+            if normalChar then
+                return normalChar
+            end
+        end
+    end
+    
+    if shiftPressed then
+        local shiftChar = UILib.KeyToCharShift[keyCode]
+        if shiftChar then
+            return shiftChar
+        end
+    end
+    
+    local normalChar = UILib.KeyToCharNormal[keyCode]
+    if normalChar then
+        return normalChar
+    end
+    
+    return nil
+end
+
+function UILib.getKeyName(keyCode)
+    for keyName, value in pairs(KEY) do
+        if value == keyCode then
+            return keyName
+        end
+    end
+    return "UNKNOWN"
+end
+
+--- Function to check if a key is a text key
+function UILib.isTextKey(keyCode)
+    return UILib.keyToText(keyCode) ~= nil
+end
+
+--- Function to check if a key is a navigation key
+function UILib.isNavigationKey(keyCode)
+    return UILib.NavigationKeys[keyCode] or false
+end
+
+--- Function to check if a key is a control key
+function UILib.isControlKey(keyCode)
+    return UILib.ControlKeys[keyCode] or false
+end
+
+function UILib.getKeyboardState()
+    return {
+        shift = isShiftPressed(),
+        ctrl = isCtrlPressed(),
+        alt = isAltPressed(),
+        capsLock = UILib.KeyboardState.capsLock,
+        numLock = UILib.KeyboardState.numLock,
+        scrollLock = UILib.KeyboardState.scrollLock
+    }
+end
+
+
+hook.add("InputPressed", "UILib_KeyPress", function(keyCode)
+    if not input.isControlLocked() then return end
+    UILib.handleKeyboardInput(keyCode)
+end)
+
+function UILib.handleKeyboardInput(keyCode)
+    local focused = UILib.getFocus()
+    
+    if not focused then
+        return false
+    end
+    
+    if focused.destroyed or not focused.visible then
+        UILib.clearFocus()
+        return false
+    end
+    
+    if keyCode == KEY.CAPSLOCK then
+        UILib.KeyboardState.capsLock = not UILib.KeyboardState.capsLock
+        if focused.onKeyPressed then
+            return focused:_onKeyPressed(KEY.CAPSLOCK, UILib.getKeyName(KEY.CAPSLOCK))
+        end
+        return true
+    elseif keyCode == KEY.NUMLOCK then
+        UILib.KeyboardState.numLock = not UILib.KeyboardState.numLock
+        if focused.onKeyPressed then
+            return focused:_onKeyPressed(KEY.NUMLOCK, UILib.getKeyName(KEY.NUMLOCK))
+        end
+        return true
+    elseif keyCode == KEY.SCROLLLOCK then
+        UILib.KeyboardState.scrollLock = not UILib.KeyboardState.scrollLock
+        if focused.onKeyPressed then
+            return focused:_onKeyPressed(KEY.SCROLLLOCK, UILib.getKeyName(KEY.SCROLLLOCK))
+        end
+        return true
+    end
+    
+    local ctrlPressed = isCtrlPressed()
+    local altPressed = isAltPressed()
+    
+    if ctrlPressed then
+        if keyCode == KEY.C and focused.onKeyPressed then
+            return focused:_onKeyPressed(KEY.C, "C", true, false, false)
+        end
+        if keyCode == KEY.V and focused.onKeyPressed then
+            return focused:_onKeyPressed(KEY.V, "V", true, false, false)
+        end
+        if keyCode == KEY.X and focused.onKeyPressed then
+            return focused:_onKeyPressed(KEY.X, "X", true, false, false)
+        end
+        if keyCode == KEY.A and focused.onKeyPressed then
+            return focused:_onKeyPressed(KEY.A, "A", true, false, false)
+        end
+        if keyCode == KEY.Z and focused.onKeyPressed then
+            return focused:_onKeyPressed(KEY.Z, "Z", true, false, false)
+        end
+    end
+    
+    local textChar = UILib.keyToText(keyCode)
+    
+    if textChar then
+        if ctrlPressed or altPressed then
+            local keyName = UILib.getKeyName(keyCode)
+            return focused:_onKeyPressed(keyCode, keyName, ctrlPressed, false, altPressed)
+        else
+            return focused:_onTextInput(textChar)
+        end
+    else
+        local keyName = UILib.getKeyName(keyCode)
+        return focused:_onKeyPressed(keyCode, keyName, ctrlPressed, isShiftPressed(), altPressed)
+    end
+    
+end
+
+
+
+UILib.InputHandler = {
+    lastMouseX = 0,
+    lastMouseY = 0,
+    leftMousePressed = false,
+    rightMousePressed = false,
+    middleMousePressed = false,
+    isDragging = false,
+    pressedComponent = nil,
+    hoveredComponent = nil,
+    dragOffsetX = 0,
+    dragOffsetY = 0,
+    lastDragX = 0,
+    lastDragY = 0,
+    focusedComponent = nil,
+    cursorPosModifiers = {}
+}
+
+---Adds a modifier function for cursor position
+---Useful when drawing on RT or screen is rotated or translated
+---@see render.setMatrix()
+function UILib.addCursorPosModifier(func, screen)
+    if not screen then
+        UILib.InputHandler.cursorPosModifiers[0] = func
+        return
+    end
+    UILib.InputHandler.cursorPosModifiers[screen:entIndex()] = func
+end
+
+function UILib.handleMouseEvents()
+    local screen = render.getScreenEntity()
+    
+    if not screen then return end
+    
+    local player = player() 
+    local mouseX, mouseY = render.cursorPos(player, screen)
+    if not mouseX then return end
+    if not isValid(screen) then return end
+    local mod = UILib.InputHandler.cursorPosModifiers[screen:entIndex()]
+    if not mod and UILib.InputHandler.cursorPosModifiers[0] then
+        mod = UILib.InputHandler.cursorPosModifiers[0]
+    end
+    if mod then
+        mouseX, mouseY = mod(mouseX, mouseY)
+    end
+    
+    UILib.InputHandler.lastMouseX = mouseX
+    UILib.InputHandler.lastMouseY = mouseY
+    
+    //UILib.handleMouseHover(mouseX, mouseY) //TODO
+    
+    UILib.handleMouseButtons(mouseX, mouseY)
+end
+
+function UILib.handleMouseButtons(mouseX, mouseY)
+    local leftMouseDown = input.isMouseDown(MOUSE.MOUSE1) or false
+    local rightMouseDown = input.isMouseDown(MOUSE.MOUSE2) or false
+    local middleMouseDown = input.isMouseDown(MOUSE.MOUSE3) or false
+    
+    --press
+    if leftMouseDown and not UILib.InputHandler.leftMousePressed then
+        UILib.handleMousePressed(mouseX, mouseY, MOUSE.MOUSE1)
+        UILib.InputHandler.leftMousePressed = true
+    elseif rightMouseDown and not UILib.InputHandler.rightMousePressed then
+        UILib.handleMousePressed(mouseX, mouseY, MOUSE.MOUSE2)
+        UILib.InputHandler.rightMousePressed = true
+    elseif middleMouseDown and not UILib.InputHandler.middleMousePressed then
+        UILib.handleMousePressed(mouseX, mouseY, MOUSE.MOUSE3)
+        UILib.InputHandler.middleMousePressed = true
+    end
+    
+    if not leftMouseDown and UILib.InputHandler.leftMousePressed then
+        UILib.handleMouseReleased(mouseX, mouseY, MOUSE.MOUSE1)
+        UILib.InputHandler.leftMousePressed = false
+    elseif not rightMouseDown and UILib.InputHandler.rightMousePressed then
+        UILib.handleMouseReleased(mouseX, mouseY, MOUSE.MOUSE2)
+        UILib.InputHandler.rightMousePressed = false
+    elseif not middleMouseDown and UILib.InputHandler.middleMousePressed then
+        UILib.handleMouseReleased(mouseX, mouseY, MOUSE.MOUSE3)
+        UILib.InputHandler.middleMousePressed = false
+    end
+    
+    -- release
+    if (leftMouseDown or rightMouseDown or middleMouseDown) and UILib.InputHandler.pressedComponent then
+        local currentButton = UILib.InputHandler.pressedComponent.button
+        local buttonCurrentlyDown = false
+        
+        if currentButton == MOUSE.MOUSE1 then
+            buttonCurrentlyDown = leftMouseDown
+        elseif currentButton == MOUSE.MOUSE2 then
+            buttonCurrentlyDown = rightMouseDown
+        elseif currentButton == MOUSE.MOUSE3 then
+            buttonCurrentlyDown = middleMouseDown
+        end
+        
+        if buttonCurrentlyDown then
+            UILib.handleMouseDragged(mouseX, mouseY)
+        else
+
+            UILib.handleMouseReleased(mouseX, mouseY, currentButton)
+        end
+    end
+end
+
+
+function UILib.handleMousePressed(mouseX, mouseY, button)
+    local component = UILib.getComponentAt(mouseX, mouseY)
+    debugprint("component at cursor is ", component)
+    
+    if component then
+        if component.onKeyPressed then
+            UILib.setFocus(component)
+            debugprint("focused on ", component)
+        end
+        
+        UILib.InputHandler.pressedComponent = {
+            component = component,
+            button = button,
+            startX = mouseX,
+            startY = mouseY,
+            dragStartX = component.x,
+            dragStartY = component.y
+        }
+        
+        local current = component
+        local propagatePress = true
+        local propagateDrag = true
+
+        while current do
+            -- Handle mouse press
+            if propagatePress then
+                local consumed = current:_onMousePressed(mouseX, mouseY, button)
+                debugprint("onMousePressed propagated to ", current, " [src: ",component,"]")
+                current.isPressed = true        
+                if consumed then 
+                    propagatePress = false -- Stop bubbling press event
+                end 
+            end
+
+            -- Handle drag start
+            if propagateDrag then
+                local consumed = current:_onDragStart(mouseX, mouseY, button)
+                debugprint("onDragStart propagated to ", current, " [",component,"]")
+                if consumed then 
+                    propagateDrag = false -- Stop bubbling drag start event
+                end 
+            end
+            
+            -- Stop if disabled or if both events are consumed
+            if not current.propagateInput or (not propagatePress and not propagateDrag) then
+                debugprint(current, " broke propagation")
+                break
+            end
+            
+            current = current.parent
+        end
+        
+        if component.draggable then
+            UILib.InputHandler.isDragging = true
+            component:_onDragStart(mouseX, mouseY, button)
+            UILib.InputHandler.dragOffsetX = mouseX - component.x
+            UILib.InputHandler.dragOffsetY = mouseY - component.y
+        end
+        
+        return true
+    else
+        -- clicked outside any component, remove focus
+        UILib.clearFocus()
+    end
+    
+    UILib.InputHandler.pressedComponent = nil
+    UILib.InputHandler.isDragging = false
+    return false
+end
+
+
+function UILib.handleMouseReleased(mouseX, mouseY, button)
+    if not UILib.InputHandler.pressedComponent then return false end
+    
+    local pressedInfo = UILib.InputHandler.pressedComponent
+    local component = pressedInfo.component
+    local consumedOnClick = false
+    local consumedOnMouseReleased = false
+    
+    if pressedInfo && pressedInfo.button == button then
+        -- propagate event
+        local current = component
+        component.isPressed = false            
+        while current do
+            if current.onMouseReleased then
+                if consumedOnMouseReleased and consumedOnClick then break end
+                
+                if not consumedOnMouseReleased then
+                    consumedOnMouseReleased = current:_onMouseReleased(mouseX, mouseY, button)
+                    current.isPressed = false
+                    
+                    if consumedOnMouseReleased then 
+                        debugprint("onMouseReleased consumed by ", current, " [src: ",component,"]")
+                    end
+                    debugprint("onMouseReleased propagated to ", current, " [",component,"]")                
+                end
+                
+                if not consumedOnClick then
+                    //TODO
+                    //if UILib.isPointInComponent(mouseX, mouseY, current) then
+                        consumedOnClick = current:_onClick(player())
+                    //end
+                    
+                    if consumedOnClick then
+                        debugprint("onClick consumed by ", current, " [src: ",component,"]")
+                    end
+                    debugprint("onClick propagated to ", current, " [",component,"]")    
+                end
+            end
+            
+            -- stop if disabled
+            if not current.propagateInput then
+                debugprint(current, " broke propagation")                
+                break
+            end
+            
+            current = current.parent
+        end
+        
+        local dragDistance = math.sqrt(
+            (mouseX - pressedInfo.startX) ^ 2 + 
+            (mouseY - pressedInfo.startY) ^ 2
+        )
+
+        UILib.InputHandler.isDragging = false
+        
+        -- propagate drag end event
+        current = component
+        while current do
+            if current.onDragEnd then
+                local consumed = current:_onDragEnd(mouseX, mouseY, button)
+                debugprint("onDragEnd propagated to ", current, " [",component,"]")
+                if consumed then break end -- Stop if event was consumed
+            end
+            
+            -- stop if disabled
+            if not current.propagateInput then
+                debugprint(current, " broke propagation")
+                break
+            end
+            
+            current = current.parent
+        end
+        
+        UILib.InputHandler.pressedComponent = nil
+        
+        return true
+    end
+    
+    
+    return false
+end
+
+function UILib.handleMouseDragged(mouseX, mouseY)
+    if not UILib.InputHandler.pressedComponent then return false end
+    
+    local pressedInfo = UILib.InputHandler.pressedComponent
+    local component = pressedInfo.component
+    local current
+    if (component.draggable or (component.parent and component.parent.draggable)) and UILib.InputHandler.isDragging then
+            current = component
+            while current do
+                debugprint("propagated drag to ", current)
+                local consumed = current:_onDrag(
+                    mouseX, mouseY,
+                    mouseX - (UILib.InputHandler.lastDragX or mouseX),
+                    mouseY - (UILib.InputHandler.lastDragY or mouseY)
+                )
+                if consumed then break end -- stop if event was consumed
+            
+                -- stop if disabled
+                if not current.propagateInput then
+                    debugprint(current, " broke propagation")
+                    break
+                end
+                
+                current = current.parent
+            end
+            
+        
+        UILib.InputHandler.lastDragX = mouseX
+        UILib.InputHandler.lastDragY = mouseY
+        return true
+    end
+    
+    --if component.scrollable then
+        if component.onMouseMoved then
+            local consumed = component:_onMouseMoved(mouseX, mouseY)
+            return consumed or true
+        end
+    --end
+    
+    return false
+end
+
+function UILib.handleMouseWheel(delta)
+    local mouseX, mouseY = UILib.InputHandler.lastMouseX, UILib.InputHandler.lastMouseY
+    local component = UILib.getComponentAtPosition(mouseX, mouseY)
+    
+    if component then
+        -- propagate event
+        local current = component
+        while current do
+            local handled = current:_onMouseScroll(delta)
+            if handled then
+                return true
+            end
+            
+            -- stop of disabled
+            if not current.propagateInput then
+                break
+            end
+            
+            current = current.parent
+        end
+    end
+    
+    return false
+end
+
+function UILib.setFocus(component)
+    if not component or component.destroyed then return false end
+    
+    local prevFocused = UILib.getFocus()
+    if prevFocused and prevFocused.onFocusLost then
+        prevFocused:onFocusLost()
+    end
+    
+    UILib.InputHandler.focusedComponent = component
+    
+    if component.onFocusGained then
+        component:onFocusGained()
+    end
+    
+    component:moveToFront()
+    
+    return true
+end
+
+
+function UILib.clearFocus()
+    if UILib.InputHandler.focusedComponent then
+        if UILib.InputHandler.focusedComponent.onFocusLost then
+            UILib.InputHandler.focusedComponent:onFocusLost()
+        end
+        UILib.InputHandler.focusedComponent = nil
+        return true
+    end
+    return false
+end
+
+function UILib.getFocus()
+    return UILib.InputHandler.focusedComponent
+end
+
+function UILib.isPointInComponent(x, y, component)
+    local absX, absY = component:getAbsolutePos()
+    local inBounds = x >= absX and x <= absX + component.w and
+                    y >= absY and y <= absY + component.h
+    
+    if not inBounds then return false end
+    
+    if component.children and #component.children > 0 then
+        for i = #component.children, 1, -1 do
+            local child = component.children[i]
+            if UILib.isPointInComponent(x, y, child) then
+                return false
+            end
+        end
+    end
+    
+    return true
+end
+
+local function findComponentAtRecursive(component, x, y)
+    if not component.visible then return nil end
+
+    if component.clippingEnabled then
+        local absX, absY = component:getAbsolutePos()
+        if x < absX or x > absX + component.w or 
+            y < absY or y > absY + component.h then
+            return nil
+        end
+    end
+
+    if component.children then
+        for i = #component.children, 1, -1 do
+            local child = component.children[i]
+            local found = findComponentAtRecursive(child, x, y)
+            if found then return found end
+        end
+    end
+
+    local absX, absY = component:getAbsolutePos()
+    if x >= absX and x <= absX + component.w and 
+        y >= absY and y <= absY + component.h then
+        return component
+    end
+
+    return nil
+end
+
+function UILib.getComponentAt(x, y)
+    for i = #UILib.components, 1, -1 do
+        local component = UILib.components[i]
+        
+        if component.parent == nil then
+            local hit = findComponentAtRecursive(component, x, y)
+            if hit then
+                return hit
+            end
+        end
+    end
+    
+    return nil
+end
+
+function UILib.getComponentAtInComponent(x, y, component)
+    local absX, absY = component:getAbsolutePos()
+    if x >= absX and x <= absX + component.w and
+        y >= absY and y <= absY + component.h then
+
+        if component.children and #component.children > 0 then
+            for i = #component.children, 1, -1 do
+                local child = component.children[i]
+                local found = UILib.getComponentAtInComponent(x, y, child)
+                if found then
+                    return found
+                end
+            end
+        end
+
+        return component
+    else
+        return nil
+    end
+end
+
+
+function UILib.getComponentAtPosition(x, y)
+    local sortedComponents = {}
+    for _, component in ipairs(UILib.components) do
+        table.insert(sortedComponents, component)
+    end
+    
+    table.sort(sortedComponents, function(a, b)
+        return a.id > b.id
+    end)
+    
+    for _, component in ipairs(sortedComponents) do
+        if component.clickable and component.visible and UILib.isPointInComponent(x, y, component) then
+            return component
+        end
+    end
+    
+    return nil
+end
+
+function UILib.handleMouseHover(mouseX, mouseY)
+    local hoveredComponent = UILib.getComponentAt(mouseX, mouseY)
+    
+    if UILib.InputHandler.hoveredComponent and UILib.InputHandler.hoveredComponent ~= hoveredComponent then
+        if UILib.InputHandler.hoveredComponent.onMouseLeave then
+            UILib.InputHandler.hoveredComponent:_onMouseLeave(mouseX, mouseY)
+        end
+    end
+    
+    if hoveredComponent and hoveredComponent ~= UILib.InputHandler.hoveredComponent then
+        if hoveredComponent.onMouseEnter then
+            hoveredComponent:_onMouseEnter(mouseX, mouseY)
+        end
+    end
+    
+    if hoveredComponent and hoveredComponent.onMouseHover then
+        hoveredComponent:onMouseHover(mouseX, mouseY)
+    end
+    
+    UILib.InputHandler.hoveredComponent = hoveredComponent
+end
+
+--[[
+  _   _ _   _ _    
+ | | | | |_(_) |___
+ | |_| |  _| | (_-<
+  \___/ \__|_|_/__/
+--]]
+
+function UILib.setRenderBounds(startX, startY, endX, endY)
+    UILib.renderBounds = {startX, startY, endX, endY}
+end
+
+function UILib.getComponentHierarchy()
+    local hierarchy = {}
+    
+    local rootComponents = {}
+    for _, component in ipairs(UILib.components) do
+        if not component.destroyed and not component.parent then
+            table.insert(rootComponents, component)
+        end
+    end
+    
+    
+    local function buildNode(component, number)
+        local node = {
+            id = component.id,
+            orderNumber = number,
+            type = component.class and component.class.name or "Component",
+            x = component.x,
+            y = component.y,
+            relX = component.relX,
+            relY = component.relY,
+            w = component.w,
+            h = component.h,
+            clickable = component.clickable,
+            zIndex = component.zIndex or 0,
+            visible = component.visible ~= false,
+            children = {}
+        }
+        
+        if component.children and #component.children > 0 then
+            local sortedChildren = {}
+            for _, child in ipairs(component.children) do
+                if not child.destroyed then
+                    table.insert(sortedChildren, child)
+                end
+            end
+            
+
+            for _, child in ipairs(sortedChildren) do
+                table.insert(node.children, buildNode(child, _))
+            end
+        end
+        
+        return node
+    end
+    
+    for _, root in ipairs(rootComponents) do
+        table.insert(hierarchy, buildNode(root, _))
+    end
+    
+    return hierarchy
+end
+
+function UILib.removeFromRootList(component)
+    for i, comp in ipairs(UILib.rootComponents) do
+        if comp.id == component.id then
+            table.remove(UILib.rootComponents, i)
+            return
+        end
+    end
+end
+
+---Draws everything
+function UILib.draw()
+    local screen = render.getScreenEntity()
+    
+    for k, component in ipairs(UILib.rootComponents) do
+        if not component.visible then continue end
+        if component.screen and component.screen ~= screen then continue end
+        if not component:isInRenderBounds() then continue end
+        component:__draw()
+    end
+end
+
+
+UILib.lastRT = nil
+---Draws everything on specified rendertarget
+---@param rtName string name of rendertarget
+function UILib.drawRT(rtName)
+    UILib.lastRT = rtName
+    local now = timer.systime()
+    if UILib.nextFrame > now then return end
+    UILib.nextFrame = now + UILib.fpsDelta
+    
+    render.selectRenderTarget(rtName)
+    render.clear(Color(0,0,0,0), true)
+    UILib.draw()
+    if UILib.Debug.drawComponentOutlines then
+        UILib.drawComponentOutlines()
+    end
+    render.selectRenderTarget()
+end
+
+---Draws component outlines and some data for debugging
+function UILib.drawComponentOutlines()
+    local function drawComponentOutline(component, depth)
+        if not component.visible then return end
+        
+        local r = math.min(255, 50 + depth * 40)
+        local g = math.min(255, 150 - depth * 30)
+        local b = math.min(255, 200 - depth * 20)
+        
+        render.setColor(Color(r, g, b, 200))
+        
+        render.drawRectOutline(component.x, component.y, component.w, component.h, 1)
+        
+        render.setColor(Color(255, 255, 255, 255))
+        local componentType = tostring(component.class.name) or "Component"
+        local text = string.format("%s #%d", componentType, component.id)
+        render.drawSimpleText(component.x + 2, component.y + 2, text, component.font)
+        
+
+        
+        for _, child in ipairs(component.children) do
+            drawComponentOutline(child, depth + 1)
+        end
+    end
+    
+    for _, component in ipairs(UILib.components) do
+        if not component.parent then
+            drawComponentOutline(component, 0)
+        end
+    end
+end
+
+
+function UILib.setScreenSize(w,h)
+    UILib.screenWidth = w
+    UILib.screenHeight = h
+end
+
+---Aligment enum
+UILib.Alignment = {
+    TOP_LEFT = "top_left",
+    TOP_MIDDLE = "top_middle",
+    TOP_RIGHT = "top_right",
+    MIDDLE_LEFT = "middle_left",
+    MIDDLE = "middle",
+    MIDDLE_RIGHT = "middle_right",
+    BOTTOM_LEFT = "bottom_left",
+    BOTTOM_MIDDLE = "bottom_middle",
+    BOTTOM_RIGHT = "bottom_right"
+}
+
+---Dock enum
+UILib.Dock = {
+    NODOCK = 0,
+    FILL = 1,
+    LEFT = 2,
+    RIGHT = 3,
+    TOP = 4,
+    BOTTOM = 5
+}
+
+--[[                         
+   ___                                  _   
+  / __|___ _ __  _ __  ___ _ _  ___ _ _| |_ 
+ | (__/ _ \ '  \| '_ \/ _ \ ' \/ -_) ' \  _|
+  \___\___/_|_|_| .__/\___/_||_\___|_||_\__|
+                |_|                                                
+--]]
+
+---@class UILib.Component
+---@field protected x integer
+---@field protected y integer
+---@field protected relX integer | nil
+---@field protected relY integer | nil
+---@field protected w integer
+---@field protected h integer
+---@field protected clickable boolean
+---@field protected propagateInput boolean
+---@field protected screen Entity | nil
+---@field protected isClicked boolean
+---@field protected children table
+---@field protected parent UILib.Component | nil
+---@field protected alignment string | nil
+---@field protected clippingEnabled boolean
+---@field protected preventScrolling boolean
+---@field protected draggable boolean
+---@field protected constrainToScreen boolean
+---@field protected visible boolean
+---@field protected destroyed boolean
+---@field private drawChildren function | nil
+UILib.Component = class("Component")
+
+-- TODO skin
+
+function UILib.Component:initialize(x, y, w, h, clickable, screen)
+    self.x = x  or 0
+    self.y = y  or 0
+    self.relX = x
+    self.relY = y
+    self.w = w or 1
+    self.h = h or 1
+    self.clickable = clickable
+    self.propagateInput = true
+    self.screen = screen
+    UILib.pk = UILib.pk + 1
+    self.id = UILib.pk
+    self.isClicked = false
+    self.children = {}
+    self.parent = nil
+    self.alignment = nil
+    self.clippingEnabled = false
+    self.preventScrolling = false
+    self.draggable = false
+    self.constrainToScreen = true
+    self.visible = true
+    self.isPressed = false
+    self.destroyed = false
+    self.drawChildren = nil
+    
+    --Skin
+    self.textColor = UILib.Skin.Component.textColor
+    self.backgroundColor = UILib.Skin.Component.backgroundColor
+    self.borderColor = UILib.Skin.Component.borderColor
+    self.borderWidth = UILib.Skin.Component.borderWidth
+    self.cornerRadius = UILib.Skin.Component.cornerRadius
+    self.font = UILib.Skin.Component.font
+    self.padding = UILib.Skin.Component.padding
+    self.margin = UILib.Skin.Component.margin
+    self.roundedCorners = {
+        top_left = true,
+        top_right = true,
+        bottom_left = true,
+        bottom_right = true
+    }
+
+    table.insert(UILib.components, self)
+    table.insert(UILib.rootComponents, self)
+end
+
+---Reloads skin parameters
+function UILib.Component:reloadSkinParameters()
+    local params = UILib.Skin[self.class.name]
+    if not params then return end
+    for param, value in pairs(params) do
+        if self[param] ~= nil then
+            self[param] = value
+        end
+    end
+end
+
+
+---Sets rounded corners of Component
+---Example: {top_left = false, top_right = false, bottom_left = true, bottom_right = true}
+---@param state table
+function UILib.Component:setRoundCorners(state)
+    for k, v in pairs(state) do
+        self.roundedCorners[k] = v    
+    end
+end
+
+---Enables clipping
+---@param state boolean
+function UILib.Component:enableClipping(state)
+    self.clippingEnabled = state
+end
+
+---Sets scrolling
+---@param state boolean
+function UILib.Component:setPreventScrolling(state)
+    self.preventScrolling = state
+end
+
+---Makes Component cliclable
+---@param state boolean
+function UILib.Component:setClickable(state)
+    self.clickable = state
+end
+
+---Makes Component draggable
+---@param state boolean
+function UILib.Component:setDraggable(state)
+    self.draggable = state
+end
+
+---Constrains Component to screen 
+---@param state boolean
+function UILib.Component:setConstrainToScreen(state)
+    self.constrainToScreen = state
+end
+
+---Sets input propagation (from child to parent) until input event is consumed
+---@param state boolean
+function UILib.Component:setInputPropagation(state)
+    self.propagateInput = state
+end
+
+---Sets visibility
+---@param state boolean
+function UILib.Component:setVisible(state)
+    self.visible = state
+    -- Recursively set to children
+    for _, child in ipairs(self.children) do
+        child:setVisible(state)
+    end
+end
+
+---Hides component
+function UILib.Component:hide()
+    self:setVisible(false)
+end
+
+---Shows component
+function UILib.Component:show()
+    self:setVisible(true)
+end
+
+---Sets parent to component
+---@param component UILib.Component parent component
+function UILib.Component:setParent(component)
+    if self.parent then
+        for i, child in ipairs(self.parent.children) do
+            if child.id == self.id then
+                table.remove(self.parent.children, i)
+                break
+            end
+        end
+    else
+        UILib.removeFromRootList(self)
+    end
+    
+    self.parent = component
+    self.relX = self.x - component.x
+    self.relY = self.y - component.y
+    if not component.visible then self:hide() end
+    
+    //update scroll bounds for Panel
+    if component:isInstanceOf(UILib.Panel) then
+        ---@cast component UILib.Panel
+        component:updateScrollBounds()
+    end
+    
+    if not component.children then return end
+    table.insert(component.children, self)
+end
+
+
+---Called before drawing
+function UILib.Component:preDraw() end
+---Called when Component is drawn
+function UILib.Component:draw() end
+---Called after drawing
+function UILib.Component:postDraw() end
+
+function UILib.Component:getXOffset()
+    return 0 
+end
+
+function UILib.Component:getYOffset()
+    return 0
+end
+
+
+
+function UILib.Component:isInRenderBounds()
+    if UILib.renderBounds[1] then
+        if self.x+self.w < UILib.renderBounds[1] then return false end
+        if self.y+self.h < UILib.renderBounds[2] then return false end
+        if self.x > UILib.renderBounds[3] then return false end
+        if self.y > UILib.renderBounds[4] then return false end 
+    end
+    
+    return true
+end
+    
+---@private
+function UILib.Component:_draw() end
+
+---@private
+function UILib.Component:__draw()
+    if not self.visible then return end
+    
+    if self.clippingEnabled then
+        render.enableScissorRect(self.x, self.y, self.x+self.w, self.y+self.h)
+    end
+
+    self:preDraw()
+    self:_draw()
+    self:draw()
+    self:postDraw()
+
+    if self.drawChildren then 
+        self:drawChildren()
+    else
+        for _, child in ipairs(self.children) do
+            if not child:isInRenderBounds() then continue end
+            
+            if self.clippingEnabled then 
+                render.enableScissorRect(self.x, self.y, self.x+self.w, self.y+self.h)
+            end
+            child:__draw()
+            render.setColor(Color(255,255,255,255))
+        end
+    end
+
+    if self.clippingEnabled then
+        render.disableScissorRect()
+    end
+    render.setColor(Color(255,255,255,255))
+    
+end
+
+
+
+---Sets position
+---@param x integer x coordinate
+---@param y integer y coordinate
+---@param absolute boolean | nil set absolute position even if Component is parented
+function UILib.Component:setPos(x, y, absolute, ignoreOffs)
+    local adjustedX, adjustedY = x, y
+    
+    -- if parented to a Window, apply window offsets
+    if not ignoreOffs and self.parent and self.parent:isInstanceOf(UILib.Window) then
+        debugprint(self, " is parented to Window")
+        adjustedX = x + (self.parent.getXOffset and self.parent:getXOffset() or 0)
+        adjustedY = y + (self.parent.getYOffset and self.parent:getYOffset() or 0)
+    end
+    
+    if self.parent and not absolute then
+        self.relX = adjustedX
+        self.relY = adjustedY
+        self.x = self.parent.x + adjustedX
+        self.y = self.parent.y + adjustedY
+    else
+        self.x = adjustedX
+        self.y = adjustedY
+        if self.parent then
+            self.relX = adjustedX - self.parent.x
+            self.relY = adjustedY - self.parent.y
+        end
+    end
+    self:updateChildrenPositions()
+    
+    return self
+end
+
+--[[
+function UILib.Component:setPos(x, y, absolute)
+        if self.parent and not absolute then
+            self.relX = x
+            self.relY = y
+            self.x = self.parent.x + x
+            self.y = self.parent.y + y
+        else
+            self.x = x
+            self.y = y
+            if self.parent then
+                self.relX = x - self.parent.x
+                self.relY = y - self.parent.y
+            end
+        end
+    self:updateChildrenPositions()
+end
+]]
+---@param alignment string Sets alignment to Component inside its parent
+function UILib.Component:setAlignment(alignment)
+    self.alignment = alignment
+    local relX, relY = self:applyAlignment()
+    if relX then
+        self:setPos(relX, relY)
+    end
+end
+
+---Calculates alignment position
+---@return integer x, integer y integer
+function UILib.Component:applyAlignment()
+    if not self.alignment or not self.parent then return 0, 0 end
+    
+    local alignments = {
+        [UILib.Alignment.TOP_LEFT] = function()
+            return 0, 0    
+        end,
+        [UILib.Alignment.TOP_MIDDLE] = function()
+            return self.parent.w / 2 - self.w / 2, 0
+        end,
+        [UILib.Alignment.TOP_RIGHT] = function()
+            return self.parent.w - self.w, 0
+        end,
+        [UILib.Alignment.MIDDLE_LEFT] = function()
+            return 0, self.parent.h / 2 - self.h / 2
+        end,
+        [UILib.Alignment.MIDDLE] = function()
+            return self.parent.w / 2 - self.w / 2, self.parent.h / 2 - self.h / 2
+        end,
+        [UILib.Alignment.MIDDLE_RIGHT] = function()
+            return self.parent.w - self.w, self.parent.h / 2 - self.h / 2
+        end,
+        [UILib.Alignment.BOTTOM_LEFT] = function()
+            return 0, self.parent.h - self.h
+        end,
+        [UILib.Alignment.BOTTOM_MIDDLE] = function()
+            return self.parent.w / 2 - self.w / 2, self.parent.h - self.h
+        end,
+        [UILib.Alignment.BOTTOM_RIGHT] = function()
+            return self.parent.w - self.w, self.parent.h - self.h
+        end
+    }
+    
+    local func = alignments[self.alignment]
+    
+    if func then 
+        local x,y = func()
+        return x,y
+    end
+    return 0, 0
+end
+
+---Updates position of all children Components
+function UILib.Component:updateChildrenPositions()
+    for _, child in pairs(self.children) do
+        if child.alignment then
+            local relX, relY = child:applyAlignment()
+            child.x = self.x + relX
+            child.y = self.y + relY
+        else
+            child.x = self.x + child.relX
+            child.y = self.y + child.relY
+        end
+        child:updateChildrenPositions()
+    end
+end
+
+---Returns absolute position
+---@return integer x, integer y
+function UILib.Component:getAbsolutePos()
+    if self.parent then
+        return self.parent.x + self.relX, self.parent.y + self.relY
+    else
+        return self.x, self.y
+    end
+end
+
+---Sets width
+---@param w integer width
+function UILib.Component:setWidth(w)
+    self.w = w
+end
+
+---Sets height
+---@param h integer height
+function UILib.Component:setHeight(h)
+    self.h = h
+end
+
+---Sets size
+---@param w integer width
+---@param h integer height
+function UILib.Component:setSize(w,h)
+    if w then self:setWidth(w) end
+    if h then self:setHeight(h) end
+end
+
+---Internal input event handlers
+
+---@private
+function UILib.Component:_onClick(ply) return self:onClick(ply) end
+
+---@private
+function UILib.Component:_drawClicked() return self:drawClicked() end
+
+---@private
+function UILib.Component:_onMouseEnter(x, y) return self:onMouseEnter(x, y) end
+
+---@private
+function UILib.Component:_onMouseLeave(x, y) return self:onMouseLeave(x, y) end
+
+---@private
+function UILib.Component:_onMouseMoved(x, y) return self:onMouseMoved(x,y) end
+
+---@private
+function UILib.Component:_onMousePressed(x, y, button) return self:onMousePressed(x, y, button) end
+
+---@private
+function UILib.Component:_onMouseReleased(x, y, button) return self:onMouseReleased(x, y, button) end
+
+---@private
+function UILib.Component:_onDragStart(x, y, button) return self:onDragStart(x, y, button) end
+
+---@private
+function UILib.Component:_onDrag(x, y, deltaX, deltaY) return self:onDrag(x, y, deltaX, deltaY) end
+
+---@private
+function UILib.Component:_onDragEnd(x, y, button) return self:onDragEnd(x, y, button) end
+
+---@private
+function UILib.Component:_onMouseScroll(delta) return self:onMouseScroll(delta) end
+
+---@private
+function UILib.Component:_onTextInput(char) return self:onTextInput(char) end
+
+---@private
+function UILib.Component:_onKeyPressed(keyCode, keyName) return self:onKeyPressed(keyCode, keyName) end
+
+
+---@param ply Player | nil
+---Called when component is clicked
+function UILib.Component:onClick(ply)
+end
+
+---Called when component is clicked and needs to be drawn
+function UILib.Component:drawClicked()
+end
+
+---Called when mouse entered Component
+---@param x integer
+---@param y integer
+function UILib.Component:onMouseEnter(x, y)
+end
+
+---Called when mouse left Component
+---@param x integer
+---@param y integer
+function UILib.Component:onMouseLeave(x, y)
+end
+
+---Called when mouse moved inside Component
+---@param x integer
+---@param y integer
+function UILib.Component:onMouseMoved(x, y)
+end
+
+---Called when mouse key is pressed inside Component
+---@param x integer
+---@param y integer
+---@param button MOUSE
+function UILib.Component:onMousePressed(x, y, button)
+end
+
+---Called when mouse key is released inside Component
+---@param x integer
+---@param y integer
+---@param button MOUSE
+function UILib.Component:onMouseReleased(x, y, button)
+end
+
+---Called when user started to drag Component
+---@param x integer
+---@param y integer
+---@param button MOUSE
+function UILib.Component:onDragStart(x, y, button)
+end
+
+---Called when Component is dragged
+---@param x integer
+---@param y integer
+---@param deltaX integer
+---@param deltaY integer
+function UILib.Component:onDrag(x, y, deltaX, deltaY)
+end
+
+---Called when user stopped toggles drag Component 
+---@param x integer
+---@param y integer
+---@param button MOUSE
+function UILib.Component:onDragEnd(x, y, button) end
+
+---Called when user is scrolling inside Component  
+---@param delta integer
+function UILib.Component:onMouseScroll(delta) end
+
+---Called on text input
+---@param char string
+function UILib.Component:onTextInput(char) end
+
+---Called when some key has been pressed
+---@param keyCode integer
+---@param keyName string
+function UILib.Component:onKeyPressed(keyCode, keyName) end
+
+---@private 
+function UILib.Component:handleKeyInput(keyCode)
+    local textChar = UILib.keyToText(keyCode)
+    
+    if textChar then
+        return self:_onTextInput(textChar)
+    else
+        local keyName = UILib.getKeyName(keyCode)
+        return self:_onKeyPressed(keyCode, keyName)
+    end
+    
+end
+
+function UILib.Component.focus()
+    return UILib.setFocus(self)
+end
+    
+function UILib.Component.blur()
+    if UILib.InputHandler.focusedComponent == self then
+        return UILib.clearFocus()
+    end
+    return false
+end
+    
+function UILib.Component.hasFocus()
+    return UILib.InputHandler.focusedComponent == self
+end
+
+
+---Returns last mouse position
+---@return integer x, integer y
+function UILib.getMousePosition()
+    return UILib.InputHandler.lastMouseX, UILib.InputHandler.lastMouseY
+end
+
+---Checks if mouse is currently over Component
+---@param component UILib.Component
+---@return boolean state
+function UILib.isMouseOver(component)
+    local mouseX, mouseY = UILib.getMousePosition()
+    return UILib.isPointInComponent(mouseX, mouseY, component)
+end
+
+---Called when some child Component was destroyed
+---@param component UILib.Component
+function UILib.Component:onChildDestroyed(component)
+end
+
+---Destroys component and its children
+function UILib.Component:destroy()
+    if self.parent then
+        for i, child in ipairs(self.parent.children) do
+            if child.id == self.id then
+                table.remove(self.parent.children, i)
+                self.parent:onChildDestroyed(self)
+                break
+            end
+        end
+        self.parent = nil
+    else
+        UILib.removeFromRootList(self)
+    end
+    
+    if self.children then
+        for i = #self.children, 1, -1 do
+            local child = self.children[i]
+            if child and child.destroy then
+                child:destroy()
+            end
+        end
+        self.children = nil
+    end
+    
+    for i, component in ipairs(UILib.components) do
+        if component.id == self.id then
+            table.remove(UILib.components, i)
+            break
+        end
+    end
+    --self:cleanup()
+end
+
+---Moves component to the top of drawing order
+function UILib.Component:moveToFront()
+    
+    local lastComponent = UILib.components[#UILib.components]
+    if lastComponent ~= self then
+        for i = 1, #UILib.components - 1 do
+            if UILib.components[i].id == self.id then
+                table.remove(UILib.components, i)
+                table.insert(UILib.components, self)
+                break
+            end
+        end
+    end
+    
+    if not self.parent then
+        local lastRoot = UILib.rootComponents[#UILib.rootComponents]
+        if lastRoot ~= self then
+            for i, comp in ipairs(UILib.rootComponents) do
+                if comp.id == self.id then
+                    table.remove(UILib.rootComponents, i)
+                    table.insert(UILib.rootComponents, self)
+                    break
+                end
+            end
+        end
+    end
+    
+    
+    if self.parent and #self.parent.children > 0 then
+        local lastChild = self.parent.children[#self.parent.children]
+        if lastChild ~= self then
+            for i = 1, #self.parent.children - 1 do
+                if self.parent.children[i].id == self.id then
+                    table.remove(self.parent.children, i)
+                    table.insert(self.parent.children, self)
+                    break
+                end
+            end
+        end
+    end
+end

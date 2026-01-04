@@ -1,0 +1,302 @@
+--@name UILib Grid
+--@author soldnotsold
+--@client
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+local table = table
+local math = math
+local render = render
+
+--[[
+   ___     _    _ 
+  / __|_ _(_)__| |
+ | (_ | '_| / _` |
+  \___|_| |_\__,_|
+--]]
+
+---@class UILib.Grid: UILib.Component
+UILib.Grid = class("Grid", UILib.Component)
+
+function UILib.Grid:initialize(w, h, cols)
+    UILib.Component.initialize(self, 0, 0, w, h, true, screen)
+    self.cols = cols or 3
+    self.clippingEnabled = true
+    self.gap = 4
+    self.autoArrange = true
+    self.layoutStyle = "flow" 
+end
+
+function UILib.Grid:setLayoutStyle(style)
+    local validStyles = {
+        "flow", "aligned", "centered", "expanded", "fullyExpanded"
+    }
+    
+    local isValid = false
+    for _, validStyle in ipairs(validStyles) do
+        if style == validStyle then
+            isValid = true
+            break
+        end
+    end
+    
+    if not isValid then
+        error("layout style must be one of: 'flow', 'aligned', 'centered', 'expanded', 'fullyExpanded'")
+    end
+    
+    self.layoutStyle = style
+    if self.autoArrange then
+        self:arrangeChildren()
+    end
+end
+
+function UILib.Grid:onChildDestroyed(component)
+    if self.autoArrange then
+        self:arrangeChildren()
+    end
+end
+
+
+function UILib.Grid:arrangeChildren()
+    if not self.children or #self.children == 0 then return end
+    
+    if self.layoutStyle == "centered" then
+        self:_arrangeCentered()
+    elseif self.layoutStyle == "aligned" then
+        self:_arrangeAligned()
+    elseif self.layoutStyle == "expanded" then
+        self:_arrangeExpanded()
+    elseif self.layoutStyle == "fullyExpanded" then
+        self:_arrangeFullyExpanded()
+    else
+        self:_arrangeFlow()
+    end
+end
+
+
+function UILib.Grid:_arrangeFlow()
+    local currentX, currentY = 0, 0
+    local currentRowHeight = 0
+    local itemsInCurrentRow = 0
+    
+    for i, child in ipairs(self.children) do
+        if itemsInCurrentRow >= self.cols then
+            currentX = 0
+            currentY = currentY + currentRowHeight + self.gap
+            currentRowHeight = 0
+            itemsInCurrentRow = 0
+        end
+        
+        child:setPos(currentX, currentY)
+        currentX = currentX + child.w + self.gap
+        if child.h > currentRowHeight then
+            currentRowHeight = child.h
+        end
+        itemsInCurrentRow = itemsInCurrentRow + 1
+        
+        if child.arrangeChildren then
+            child:arrangeChildren()
+        end
+    end
+end
+
+function UILib.Grid:_arrangeAligned()
+    if #self.children == 0 then return end
+    
+    local children = self.children
+    local cols = math.min(self.cols, #children)
+    local rows = math.ceil(#children / cols)
+    local gap = self.gap
+    
+    local colWidths = {}
+    local rowHeights = {}
+    
+    for i, child in ipairs(children) do
+        local col = (i - 1) % cols + 1
+        local row = math.floor((i - 1) / cols) + 1
+        
+        if not colWidths[col] or child.w > colWidths[col] then
+            colWidths[col] = child.w
+        end
+        
+        if not rowHeights[row] or child.h > rowHeights[row] then
+            rowHeights[row] = child.h
+        end
+    end
+    
+    local colStarts = {0}
+    for col = 1, cols do
+        colStarts[col + 1] = colStarts[col] + (colWidths[col] or 0) + gap
+    end
+    
+    local rowStarts = {0}
+    for row = 1, rows do
+        rowStarts[row + 1] = rowStarts[row] + (rowHeights[row] or 0) + gap
+    end
+    
+    for i, child in ipairs(children) do
+        local col = (i - 1) % cols + 1
+        local row = math.floor((i - 1) / cols) + 1
+        
+        local x = colStarts[col]
+        local y = rowStarts[row]
+        
+        child:setPos(x, y, false)
+        
+        if child.arrangeChildren then
+            child:arrangeChildren()
+        end
+    end
+end
+
+function UILib.Grid:_arrangeCentered()
+    if #self.children == 0 then return end
+    
+    local children = self.children
+    local cols = math.min(self.cols, #children)
+    local rows = math.ceil(#children / cols)
+    local gap = self.gap
+    
+    local colWidths = {}
+    local rowHeights = {}
+    
+    for i, child in ipairs(children) do
+        local col = (i - 1) % cols + 1
+        local row = math.floor((i - 1) / cols) + 1
+        
+        if not colWidths[col] or child.w > colWidths[col] then
+            colWidths[col] = child.w
+        end
+        
+        if not rowHeights[row] or child.h > rowHeights[row] then
+            rowHeights[row] = child.h
+        end
+    end
+    
+    local colStarts = {0}
+    for col = 1, cols do
+        colStarts[col + 1] = colStarts[col] + (colWidths[col] or 0) + gap
+    end
+    
+    local rowStarts = {0}
+    for row = 1, rows do
+        rowStarts[row + 1] = rowStarts[row] + (rowHeights[row] or 0) + gap
+    end
+    
+    for i, child in ipairs(children) do
+        local col = (i - 1) % cols + 1
+        local row = math.floor((i - 1) / cols) + 1
+        
+        local cellWidth = colWidths[col]
+        local cellHeight = rowHeights[row]
+        
+        local x = colStarts[col] + (cellWidth - child.w) / 2
+        local y = rowStarts[row] + (cellHeight - child.h) / 2
+        
+        child:setPos(x, y, false)
+        
+        if child.arrangeChildren then
+            child:arrangeChildren()
+        end
+    end
+end
+
+function UILib.Grid:_arrangeExpanded()
+    if #self.children == 0 then return end
+    
+    local children = self.children
+    local cols = math.min(self.cols, #children)
+    local rows = math.ceil(#children / cols)
+    local gap = self.gap
+    
+    local columnWidth = (self.w - (cols - 1) * gap) / cols
+    
+    local rowHeights = {}
+    for i, child in ipairs(children) do
+        local row = math.floor((i - 1) / cols) + 1
+        if not rowHeights[row] or child.h > rowHeights[row] then
+            rowHeights[row] = child.h
+        end
+    end
+    
+    local rowStarts = {0}
+    for row = 1, rows do
+        rowStarts[row + 1] = rowStarts[row] + (rowHeights[row] or 0) + gap
+    end
+    
+    for i, child in ipairs(children) do
+        local col = (i - 1) % cols
+        local row = math.floor((i - 1) / cols) + 1
+        
+        local x = col * (columnWidth + gap) + (columnWidth - child.w) / 2
+        
+        local rowHeight = rowHeights[row]
+        local y = rowStarts[row] + (rowHeight - child.h) / 2
+        
+        child:setPos(x, y, false)
+        
+        if child.arrangeChildren then
+            child:arrangeChildren()
+        end
+    end
+end
+
+function UILib.Grid:_arrangeFullyExpanded()
+    if #self.children == 0 then return end
+    
+    local children = self.children
+    local cols = math.min(self.cols, #children)
+    local rows = math.ceil(#children / cols)
+    local gap = self.gap
+    
+    local columnWidth = (self.w - (cols - 1) * gap) / cols
+    local rowHeight = (self.h - (rows - 1) * gap) / rows
+    
+    for i, child in ipairs(children) do
+        local col = (i - 1) % cols
+        local row = math.floor((i - 1) / cols)
+        
+        local x = col * (columnWidth + gap) + (columnWidth - child.w) / 2
+        local y = row * (rowHeight + gap) + (rowHeight - child.h) / 2
+        
+        child:setPos(x, y, false)
+        
+        if child.arrangeChildren then
+            child:arrangeChildren()
+        end
+    end
+end 
+
+
+function UILib.Grid:removeComponent(component)
+    for i, child in ipairs(self.children) do
+        if child.id == component.id then
+            table.remove(self.children, i)
+            component.parent = nil
+            break
+        end
+    end
+    if self.autoArrange then
+        self:arrangeChildren()
+    end
+end
+
+function UILib.Grid:addComponent(component)
+    if not self.children then return end
+
+    component:setParent(self)
+    local maxY = 0
+    local y = 0
+    for k, child in pairs(self.children) do
+        y = child.y+child.h
+        if y > maxY then maxY = y end
+    end
+    if maxY > self.y + self.h then self.h = maxY-self.y end
+    
+    if self.autoArrange then
+        self:arrangeChildren()
+    end
+    component:moveToFront()
+end

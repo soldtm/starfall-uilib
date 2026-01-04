@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "*.txt": "lua"
+    },
+    "Lua.diagnostics.disable": [
+        "undefined-global",
+        "need-check-nil"
+    ]
+}

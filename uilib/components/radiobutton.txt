@@ -1,0 +1,301 @@
+--@name UILib Radio Button
+--@author soldnotsold
+--@client
+--@include uilib/components/label.txt
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+if not UILib.Label then
+    require("uilib/label.txt")
+end
+
+
+local table = table
+local math = math
+local render = render
+
+--[[
+Radio Button
+]]
+
+---@class UILib.RadioButton: UILib.Component
+UILib.RadioButton = class("RadioButton", UILib.Component)
+
+function UILib.RadioButton:initialize(text, group, screen)
+    self.size = UILib.Skin.RadioButton.size
+    UILib.Component.initialize(self, 0, 0, self.size, self.size, true, screen)
+    
+    self.checked = false
+    self.enabled = true
+    self.group = group or "default"
+    
+    if not UILib.RadioButton.groups then
+        UILib.RadioButton.groups = {}
+    end
+    if not UILib.RadioButton.groups[self.group] then
+        UILib.RadioButton.groups[self.group] = {}
+    end
+    table.insert(UILib.RadioButton.groups[self.group], self)
+    
+    self.backgroundColor = UILib.Skin.RadioButton.backgroundColor
+    self.backgroundHoverColor = UILib.Skin.RadioButton.backgroundHoverColor
+    self.borderColor = UILib.Skin.RadioButton.borderColor
+    self.borderHoverColor = UILib.Skin.RadioButton.borderHoverColor
+    self.dotColor = UILib.Skin.RadioButton.dotColor
+    self.dotHoverColor = UILib.Skin.RadioButton.dotHoverColor
+    self.borderWidth = UILib.Skin.RadioButton.borderWidth
+    self.textColor = UILib.Skin.RadioButton.textColor
+    self.textPadding = UILib.Skin.RadioButton.textPadding
+    
+    self.isHovered = false
+    self.isPressed = false
+    
+    self.label = UILib.Label:new(text, screen)
+    self.label:setParent(self)
+    self.label:setColor(self.textColor)
+    self.label:setFont(UILib.Skin.RadioButton.font)
+    
+    self:calculateSize()
+    
+    self.onValueChanged = nil
+end
+
+function UILib.RadioButton:calculateSize()
+    if self.label and self.label.text ~= "" then
+        self.label:recalculateSize()
+        self.fullWidth = self.size + self.textPadding + self.label.w
+        self.fullHeight = math.max(self.size, self.label.h)
+    else
+        self.fullWidth = self.size
+        self.fullHeight = self.size
+    end
+    
+    self.w = self.fullWidth
+    self.h = self.fullHeight
+    
+    if self.label then
+        self.label:setPos(self.size + self.textPadding, (self.fullHeight - self.label.h) / 2)
+    end
+end
+
+function UILib.RadioButton:setIcon(icon)
+    if not self.label then return end
+    return self.label:setIcon(icon)
+end
+
+function UILib.RadioButton:setText(text)
+    if self.label then
+        self.label:setText(text)
+        self:calculateSize()
+    end
+end
+
+function UILib.RadioButton:getText()
+    return self.label and self.label.text or ""
+end
+
+function UILib.RadioButton:setTextColor(color)
+    if self.label then
+        self.label:setColor(color)
+    end
+end
+
+function UILib.RadioButton:setFont(font)
+    if self.label then
+        self.label:setFont(font)
+        self:calculateSize()
+    end
+end
+
+function UILib.RadioButton:setChecked(checked, triggerCallback)
+    local oldValue = self.checked
+    
+    if checked and not self.checked then
+        self:uncheckGroup()
+        self.checked = true
+    elseif not checked then
+        self.checked = false
+    end
+    
+    if triggerCallback ~= false and oldValue ~= self.checked and self.onValueChanged then
+        self:onValueChanged(self.checked, oldValue)
+    end
+end
+
+function UILib.RadioButton:uncheckGroup()
+    if not UILib.RadioButton.groups or not UILib.RadioButton.groups[self.group] then
+        return
+    end
+    
+    for _, radioButton in ipairs(UILib.RadioButton.groups[self.group]) do
+        if radioButton ~= self and radioButton.checked then
+            radioButton.checked = false
+            if radioButton.onValueChanged then
+                radioButton:onValueChanged(false, true)
+            end
+        end
+    end
+end
+
+function UILib.RadioButton:getChecked()
+    return self.checked
+end
+
+function UILib.RadioButton:setEnabled(enabled)
+    self.enabled = enabled
+    self.clickable = enabled
+    
+    if self.label then
+        self.label:setColor(enabled and self.textColor or Color(128, 128, 128))
+    end
+end
+
+function UILib.RadioButton:onMouseEnter(x, y)
+    if not self.enabled then return end
+    self.isHovered = true
+end
+
+function UILib.RadioButton:onMouseLeave(x, y)
+    self.isHovered = false
+    self.isPressed = false
+end
+
+function UILib.RadioButton:onMousePressed(x, y, button)
+    if not self.enabled or button ~= MOUSE.MOUSE2 then return false end
+    
+    self.isPressed = true
+    return true
+end
+
+function UILib.RadioButton:onMouseReleased(x, y, button)
+    if not self.enabled or button ~= MOUSE.MOUSE2 then return false end
+    
+    if not self.checked then
+        self:setChecked(true, true)
+    end
+    self.isPressed = false
+    return true
+end
+
+function UILib.RadioButton:onClick(ply)
+    return true
+end
+
+function UILib.RadioButton:_draw()
+    local circleX = self.x + self.size / 2
+    local circleY = self.y + (self.fullHeight - self.size) / 2 + self.size / 2
+    
+    local bgColor = self.backgroundColor
+    local borderColor = self.borderColor
+    local dotColor = self.dotColor
+    
+    if not self.enabled then
+        bgColor = Color(bgColor.r * 0.5, bgColor.g * 0.5, bgColor.b * 0.5, bgColor.a * 0.5)
+        borderColor = Color(borderColor.r * 0.5, borderColor.g * 0.5, borderColor.b * 0.5, borderColor.a * 0.5)
+        dotColor = Color(dotColor.r * 0.5, dotColor.g * 0.5, dotColor.b * 0.5, dotColor.a * 0.5)
+    elseif self.isHovered then
+        bgColor = self.backgroundHoverColor
+        borderColor = self.borderHoverColor
+        dotColor = self.dotHoverColor
+    end
+    
+
+    if self.borderWidth then
+        render.setColor(borderColor)
+        render.drawFilledCircle(circleX, circleY, self.size / 2)
+    end
+
+    render.setColor(bgColor)
+    render.drawFilledCircle(circleX, circleY, (self.size - self.borderWidth) / 2 )
+    
+    if self.checked then
+        render.setColor(dotColor)
+        render.drawFilledCircle(circleX, circleY, self.size/5)
+    end
+end
+
+function UILib.RadioButton:setSize(size)
+    self.size = size
+    self:calculateSize()
+end
+
+function UILib.RadioButton:setColors(background, border, dot)
+    if background then self.backgroundColor = background end
+    if border then self.borderColor = border end
+    if dot then self.dotColor = dot end
+end
+
+function UILib.RadioButton:setHoverColors(background, border, dot)
+    if background then self.backgroundHoverColor = background end
+    if border then self.borderHoverColor = border end
+    if dot then self.dotHoverColor = dot end
+end
+
+function UILib.RadioButton:setBorder(width)
+    if width then self.borderWidth = width end
+end
+
+function UILib.RadioButton:setTextPadding(padding)
+    self.textPadding = padding
+    self:calculateSize()
+end
+
+function UILib.RadioButton:setGroup(group)
+    if UILib.RadioButton.groups and UILib.RadioButton.groups[self.group] then
+        for i, radioButton in ipairs(UILib.RadioButton.groups[self.group]) do
+            if radioButton == self then
+                table.remove(UILib.RadioButton.groups[self.group], i)
+                break
+            end
+        end
+    end
+    
+    self.group = group
+    if not UILib.RadioButton.groups[self.group] then
+        UILib.RadioButton.groups[self.group] = {}
+    end
+    table.insert(UILib.RadioButton.groups[self.group], self)
+end
+
+function UILib.RadioButton:getGroup()
+    return self.group
+end
+
+function UILib.RadioButton:destroy()
+    if UILib.RadioButton.groups and UILib.RadioButton.groups[self.group] then
+        for i, radioButton in ipairs(UILib.RadioButton.groups[self.group]) do
+            if radioButton == self then
+                table.remove(UILib.RadioButton.groups[self.group], i)
+                break
+            end
+        end
+    end
+    
+    if self.label and self.label.destroy then
+        self.label:destroy()
+    end
+    UILib.Component.destroy(self)
+end
+
+function UILib.RadioButton.getGroup(groupName)
+    return UILib.RadioButton.groups and UILib.RadioButton.groups[groupName] or {}
+end
+
+function UILib.RadioButton.getSelected(groupName)
+    if not UILib.RadioButton.groups or not UILib.RadioButton.groups[groupName] then
+        return nil
+    end
+    
+    for _, radioButton in ipairs(UILib.RadioButton.groups[groupName]) do
+        if radioButton.checked then
+            return radioButton
+        end
+    end
+    return nil
+end
+
+function UILib.RadioButton.clearAllGroups()
+    UILib.RadioButton.groups = {}
+end

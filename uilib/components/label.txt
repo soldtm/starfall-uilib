@@ -1,0 +1,267 @@
+--@name UILib Label
+--@author soldnotsold
+--@client
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+local table = table
+local math = math
+local render = render
+
+--[[
+  _         _         _ 
+ | |   __ _| |__  ___| |
+ | |__/ _` | '_ \/ -_) |
+ |____\__,_|_.__/\___|_|
+--]]
+---@class UILib.Label: UILib.Component
+---@field private font any
+---@field protected color Color
+---@field private icon UILib.Icon | nil
+---@field private iconMaterial Material | nil
+---@field protected iconSize integer
+---@field protected iconColor Color
+---@field protected iconPadding integer
+---@field protected iconPosition string | nil
+UILib.Label = class("Label", UILib.Component)
+
+function UILib.Label:initialize(text, screen)
+    self.font = UILib.Skin.Label.font
+    self.color = UILib.Skin.Label.textColor
+
+    UILib.Component.initialize(self, 0,0, w,h, false, screen)
+    
+    -- Icon properties
+    self.icon = nil
+    self.iconMaterial = nil
+    self.iconSize = 16
+    self.iconColor = Color(255, 255, 255, 255)
+    self.iconPadding = 4
+    self.iconPosition = "left"
+    
+    self:setText(text)
+end
+
+---Sets font
+---@param font any font or font name
+function UILib.Label:setFont(font)
+    self.font = font
+    self:setText(self.text)
+end
+
+---Sets color
+---@param clr Color
+function UILib.Label:setColor(clr)
+    self.color = clr
+end
+
+---@private
+function UILib.Label:_draw()
+    local currentX = self.x
+    local currentY = self.y
+    
+    if self.icon or self.iconMaterial then
+        local iconX, iconY, textX, textY = self:calculateIconAndTextPositions()
+        
+        if self.iconMaterial then
+            render.setColor(self.iconColor)
+            render.setMaterial(self.iconMaterial)
+            render.drawTexturedRectFast(iconX, iconY, self.iconSize, self.iconSize)
+        elseif self.icon then
+            self.icon:setPos(iconX, iconY)
+            self.icon:setSize(self.iconSize, self.iconSize)
+            self.icon:_draw()
+        end
+        
+        currentX = textX
+        currentY = textY
+    end
+    
+    if self.font then render.setFont(self.font) end
+    if self.color then render.setColor(self.color) end
+    render.drawSimpleText(currentX, currentY, self.text)
+end
+
+---@private
+function UILib.Label:calculateIconAndTextPositions()
+    
+    local textWidth, textHeight = render.getTextSize(self.text)
+    local iconX, iconY, textX, textY = 0, 0, 0, 0
+    
+    if self.iconPosition == "left" then
+        iconX = self.x
+        iconY = self.y + (self.h - self.iconSize) / 2
+        textX = self.x + self.iconSize + self.iconPadding
+        textY = self.y + (self.h - textHeight) / 2
+    elseif self.iconPosition == "right" then
+        iconX = self.x + self.w - self.iconSize
+        iconY = self.y + (self.h - self.iconSize) / 2
+        textX = self.x
+        textY = self.y + (self.h - textHeight) / 2
+    elseif self.iconPosition == "top" then
+        iconX = self.x + (self.w - self.iconSize) / 2
+        iconY = self.y
+        textX = self.x + (self.w - textWidth) / 2
+        textY = self.y + self.iconSize + self.iconPadding
+    elseif self.iconPosition == "bottom" then
+        iconX = self.x + (self.w - self.iconSize) / 2
+        iconY = self.y + self.h - self.iconSize
+        textX = self.x + (self.w - textWidth) / 2
+        textY = self.y
+    end
+    
+    return iconX, iconY, textX, textY
+end
+
+---Recalculates size
+function UILib.Label:recalculateSize()
+    if self.font then render.setFont(self.font) else render.setFont(UILib.font) end
+    local textWidth, textHeight = render.getTextSize(self.text)
+    
+    local totalWidth = textWidth
+    local totalHeight = textHeight
+    
+    if self.icon or self.iconMaterial then
+        if self.iconPosition == "left" or self.iconPosition == "right" then
+            totalWidth = textWidth + self.iconSize + self.iconPadding
+            totalHeight = math.max(textHeight, self.iconSize)
+        elseif self.iconPosition == "top" or self.iconPosition == "bottom" then
+            totalWidth = math.max(textWidth, self.iconSize)
+            totalHeight = textHeight + self.iconSize + self.iconPadding
+        end
+    end
+    
+    self.w = totalWidth
+    self.h = totalHeight
+end
+
+---Sets text
+---@param text string
+function UILib.Label:setText(text)
+    self.text = text
+    self:recalculateSize()
+    if self.alignment then self:setAlignment(self.alignment) end
+end
+
+---Sets icon
+---@param materialOrComponent Material | UILib.Icon Material or existing Icon
+---@param size integer Size of an icon
+---@param color Color Color of an icon
+---@param position string
+function UILib.Label:setIcon(materialOrComponent, size, color, position)
+    if type(materialOrComponent) == "string" then
+        -- Assume it's a material path
+        self.iconMaterial = material.createFromImage(materialOrComponent, "")
+    elseif type(materialOrComponent) == "Material" then
+        -- Assume it's a material
+        self.iconMaterial = materialOrComponent
+        self.icon = nil
+    else 
+        -- It's a Component
+        self.icon = materialOrComponent
+        self.iconMaterial = nil
+    end
+    
+    if size then self.iconSize = size end
+    if color then self.iconColor = color end
+    if position then self.iconPosition = position end
+    
+    self:recalculateSize()
+    return self
+end
+
+--TODO ref icon
+
+---Sets icon size
+---@param size integer
+function UILib.Label:setIconSize(size)
+    self.iconSize = size
+    self:recalculateSize()
+    return self
+end
+
+---Sets icon Color
+---@param color Color
+function UILib.Label:setIconColor(color)
+    self.iconColor = color
+    return self
+end
+
+---Sets position of an icon
+---@param position string
+function UILib.Label:setIconPosition(position)
+    local validPositions = {"left", "right", "top", "bottom"}
+    local isValid = false
+    for _, validPos in ipairs(validPositions) do
+        if position == validPos then
+            isValid = true
+            break
+        end
+    end
+    
+    if not isValid then
+        error("Icon position must be one of: 'left', 'right', 'top', 'bottom'")
+    end
+    
+    self.iconPosition = position
+    self:recalculateSize()
+    return self
+end
+
+---Sets padding
+---@param padding integer
+function UILib.Label:setIconPadding(padding)
+    self.iconPadding = padding
+    self:recalculateSize()
+    return self
+end
+
+---Removes icon
+function UILib.Label:removeIcon()
+    self.icon = nil
+    self.iconMaterial = nil
+    self:recalculateSize()
+    return self
+end
+
+---Sets icon from image
+---@param imagePath string path
+---@param size integer
+---@param color Color
+---@param position string
+function UILib.Label:setImageIcon(imagePath, size, color, position)
+    local material = material.createFromImage(imagePath, "")
+    return self:setIcon(material, size, color, position)
+end
+
+---Sets icon from texture
+---@param texturePath string path
+---@param size integer
+---@param color Color
+---@param position string
+function UILib.Label:setTextureIcon(texturePath, size, color, position)
+    local material = material.create("UnlitGeneric")
+    material:setTexture("$basetexture", texturePath)
+    return self:setIcon(material, size, color, position)
+end
+
+---Sets icon from URL
+---@param url string
+---@param size integer
+---@param color Color
+---@param position string
+function UILib.Label:setURLIcon(url, size, color, position)
+    local material = material.create("UnlitGeneric")
+    pcall(function()
+        material:setTextureURL("$basetexture", url, function(_, _, width, height, layout)
+            if layout then
+                local scaler = math.max(width, height)
+                local ratio = (1024 / scaler)
+                layout(0, 0, ratio * width, ratio * height)
+            end
+        end)
+    end)
+    return self:setIcon(material, size, color, position)
+end

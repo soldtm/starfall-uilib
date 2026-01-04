@@ -1,0 +1,235 @@
+--@name UILib Metro Skin
+--@author soldnotsold
+--@client
+
+
+local MetroSkin = {}
+
+MetroSkin.Component = {
+    textColor = Color(255, 255, 255),       
+    backgroundColor = Color(45, 45, 45),     
+    borderColor = Color(100, 100, 100),     
+    borderWidth = 0,                      
+    cornerRadius = 0, 
+    font = UILib.createFont("Roboto", 14, 400, false, false, false, false, 0, false, 0),
+    padding = 8,
+    margin = 4
+}
+
+MetroSkin.Label = {
+    textColor = Color(255, 255, 255), 
+    font = UILib.createFont("Roboto", 14, 400, false, false, false, false, 0, false, 0),
+}
+
+MetroSkin.Button = {
+    textColor = Color(255, 255, 255),     
+    backgroundColor = Color(0, 120, 215),    
+    backgroundHoverColor = Color(0, 151, 251),  
+    backgroundPressedColor = Color(0, 90, 180),
+    borderColor = Color(0, 120, 215),           
+    borderPressedColor = Color(0, 90, 180), 
+    borderWidth = 0,
+    cornerRadius = 0,  
+    font = UILib.createFont("Roboto", 14, 600, false, false, false, false, 0, false, 0),
+    padding = 12,
+    margin = MetroSkin.Component.margin
+}
+
+MetroSkin.Panel = {
+    textColor = Color(255, 255, 255),   
+    backgroundColor = Color(30, 30, 30),  
+    borderColor = Color(60, 60, 60),  
+    borderWidth = 1,
+    cornerRadius = 0,
+    font = MetroSkin.Component.font,
+    padding = MetroSkin.Component.padding,
+    margin = MetroSkin.Component.margin,
+    scrollbarColor = Color(100, 100, 100),   
+    scrollbarHoverColor = Color(120, 120, 120),
+    scrollbarActiveColor = Color(0, 120, 215),   
+    scrollbarCornerRadius = 0,                  
+    panelTopHeight = 40,
+    panelTopColor = Color(0, 120, 215),        
+    panelTopTextColor = Color(255, 255, 255),   
+    panelTopFont = UILib.createFont("Roboto", 16, 600, false, false, false, false, 0, false, 0),
+    panelTopPad = 12
+}
+
+MetroSkin.Window = {
+    textColor = MetroSkin.Panel.textColor,
+    backgroundColor = Color(30, 30, 30),       
+    borderColor = Color(60, 60, 60),             
+    borderWidth = 1,
+    cornerRadius = 0,                          
+    font = MetroSkin.Panel.font,
+    padding = MetroSkin.Panel.padding,
+    margin = MetroSkin.Panel.margin,
+    
+    panelTopHeight = 40,
+    panelTopColor = Color(0, 120, 215),       
+    panelTopTextColor = Color(255, 255, 255),   
+    panelTopFont = MetroSkin.Panel.panelTopFont,
+    panelTopPad = 12,
+    
+    closeButtonColor = Color(232, 17, 35),      
+    closeButtonHoverColor = Color(255, 51, 68),  
+    closeButtonTextColor = Color(255, 255, 255) 
+}
+
+MetroSkin.ProgressBar = {
+    textColor = Color(255, 255, 255),           
+    backgroundColor = Color(60, 60, 60),        
+    progressColor = Color(0, 120, 215),        
+    borderColor = Color(100, 100, 100),         
+    borderWidth = 1,
+    cornerRadius = 0,                           
+    font = UILib.createFont("Roboto", 12, 400, false, false, false, false, 0, false, 0),
+    padding = MetroSkin.Component.padding,
+    margin = MetroSkin.Component.margin,
+    height = 20,
+}
+
+MetroSkin.SegmentedProgressBar = {
+    textColor = MetroSkin.ProgressBar.textColor,
+    backgroundColor = MetroSkin.ProgressBar.backgroundColor,
+    progressColor = MetroSkin.ProgressBar.progressColor,
+    borderColor = MetroSkin.ProgressBar.borderColor,
+    borderWidth = MetroSkin.ProgressBar.borderWidth,
+    cornerRadius = MetroSkin.ProgressBar.cornerRadius,
+    font = MetroSkin.ProgressBar.font,
+    padding = MetroSkin.ProgressBar.padding,
+    margin = MetroSkin.ProgressBar.margin,
+    height = MetroSkin.ProgressBar.height,
+    
+    segmentColor = MetroSkin.ProgressBar.progressColor,
+    segmentBackgroundColor = Color(60, 60, 60),
+    segmentBorderColor = Color(100, 100, 100),
+    segmentGap = 2
+}
+
+MetroSkin.Slider = {
+    trackColor = Color(60, 60, 60),             
+    trackProgressColor = Color(0, 120, 215),     
+    thumbColor = Color(200, 200, 200),          
+    thumbHoverColor = Color(240, 240, 240),      
+    thumbActiveColor = Color(255, 255, 255),    
+    borderColor = Color(100, 100, 100),          
+    valueTextBackgroundColor = Color(45, 45, 45),
+    textColor = Color(255, 255, 255)            
+}
+
+MetroSkin.TerminalLine = {
+    textColor = Color(255, 255, 255),            
+    backgroundColor = Color(30, 30, 30),         
+    font = UILib.createFont("Consolas", 14, 400, false, false, false, false, 0, false, 0),
+    promptColor = Color(16, 124, 16),            
+    selectionColor = Color(0, 120, 215, 100),   
+    lineHeight = 20,
+    charWidth = 9
+}
+
+MetroSkin.Terminal = {
+    textColor = MetroSkin.TerminalLine.textColor,
+    backgroundColor = Color(30, 30, 30),        
+    promptColor = MetroSkin.TerminalLine.promptColor,
+    inputColor = Color(255, 255, 255),           
+    cursorColor = Color(255, 255, 255),          
+    selectionColor = MetroSkin.TerminalLine.selectionColor,
+    terminalBorderColor = Color(60, 60, 60),
+    terminalLineHeight = MetroSkin.TerminalLine.lineHeight,
+}
+
+MetroSkin.Dropdown = {
+    backgroundExpandedColor = Color(45, 45, 45),
+    optionBackgroundColor = Color(45, 45, 45),
+    optionHoverColor = Color(0, 120, 215),       
+    optionTextColor = Color(255, 255, 255),     
+    panelBackgroundColor = Color(45, 45, 45),
+    optionCornerRadius = 0,                     
+}
+
+MetroSkin.PropertySheet = {
+    headerHeight = 45,
+    headerBackgroundColor = Color(0, 120, 215), 
+    headerTextColor = Color(255, 255, 255),
+    headerFont = UILib.createFont("Roboto", 16, 600, false, false, false, false, 0, false, 0),
+    tabHeight = 36,
+    tabBackgroundColor = Color(45, 45, 45),      
+    tabHoverColor = Color(0, 120, 215),         
+    tabActiveColor = Color(0, 120, 215),        
+    tabTextColor = Color(200, 200, 200),        
+    tabActiveTextColor = Color(255, 255, 255),   
+    tabCornerRadius = 0,                       
+    tabPadding = 16,
+    tabSpacing = 0,                             
+    tabBorderWidth = 0,
+    contentBackgroundColor = Color(30, 30, 30), 
+    borderColor = Color(60, 60, 60),
+    borderWidth = 1,
+    cornerRadius = 0                            
+}
+
+MetroSkin.Checkbox = {
+    size = 20,
+    backgroundColor = Color(45, 45, 45),
+    backgroundHoverColor = Color(60, 60, 60),
+    borderColor = Color(100, 100, 100),
+    borderHoverColor = Color(120, 120, 120),
+    checkColor = Color(0, 120, 215),             
+    checkHoverColor = Color(0, 151, 251),       
+    borderWidth = 2,
+    cornerRadius = 0,                          
+    textColor = Color(255, 255, 255),
+    font = UILib.createFont("Roboto", 14, 400, false, false, false, false, 0, false, 0),
+    textPadding = 8
+}
+
+MetroSkin.Icon = {
+    size = 24,
+}
+
+MetroSkin.RadioButton = {
+    size = 20,
+    backgroundColor = Color(45, 45, 45),
+    backgroundHoverColor = Color(60, 60, 60),
+    borderColor = Color(100, 100, 100),
+    borderHoverColor = Color(120, 120, 120),
+    dotColor = Color(0, 120, 215),              
+    dotHoverColor = Color(0, 151, 251),        
+    borderWidth = 2,
+    textColor = Color(255, 255, 255),
+    font = UILib.createFont("Roboto", 14, 400, false, false, false, false, 0, false, 0),
+    textPadding = 8
+}
+
+MetroSkin.Marquee = {
+    backgroundColor = Color(30, 30, 30),
+    speed = 50,
+    direction = "left",
+    gap = 30,
+    fadeEdges = false,
+    fadeWidth = 30,
+    smoothScrolling = true
+}
+
+MetroSkin.TextMarquee = {
+    textColor = Color(255, 255, 255),
+    font = UILib.createFont("Roboto", 16, 600, false, false, false, false, 0, false, 0),
+    spacing = 0
+}
+
+MetroSkin.MetroColors = {
+    Blue = Color(0, 120, 215),       
+    LightBlue = Color(0, 151, 251),  
+    DarkBlue = Color(0, 90, 180),   
+    Green = Color(16, 124, 16),     
+    Red = Color(232, 17, 35),       
+    Orange = Color(255, 140, 0),    
+    Purple = Color(92, 46, 145),     
+    Teal = Color(0, 171, 169),      
+    DarkGray = Color(30, 30, 30),   
+    MediumGray = Color(45, 45, 45), 
+    LightGray = Color(60, 60, 60)   
+}
+
+return MetroSkin

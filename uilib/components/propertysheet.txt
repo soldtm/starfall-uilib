@@ -1,0 +1,393 @@
+--@name UILib Property Sheet
+--@author soldnotsold
+--@client
+--@include uilib/components/button.txt
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+if not UILib.Button then
+    require("uilib/components/button.txt")
+end
+
+local table = table
+local math = math
+local render = render
+
+
+--[[
+   ___                        __         ______           __ 
+  / _ \_______  ___  ___ ____/ /___ __  / __/ /  ___ ___ / /_
+ / ___/ __/ _ \/ _ \/ -_) __/ __/ // / _\ \/ _ \/ -_) -_) __/
+/_/  /_/  \___/ .__/\__/_/  \__/\_, / /___/_//_/\__/\__/\__/ 
+             /_/               /___/                                    
+--]]
+
+
+
+---@class UILib.PropertySheet: UILib.Component
+UILib.PropertySheet = class("PropertySheet", UILib.Component)
+
+function UILib.PropertySheet:initialize(x, y, w, h, screen)
+    UILib.Component.initialize(self, x, y, w, h, true, screen)
+    
+    self.sheets = {}
+    self.currentSheetIndex = nil
+    self.tabBarVisible = true
+    
+    self.headerHeight = UILib.Skin.PropertySheet.headerHeight
+    self.tabHeight = UILib.Skin.PropertySheet.tabHeight
+    self.tabSpacing = UILib.Skin.PropertySheet.tabSpacing
+    self.tabPadding = UILib.Skin.PropertySheet.tabPadding
+    
+    self.headerBackgroundColor = UILib.Skin.PropertySheet.headerBackgroundColor
+    self.headerTextColor = UILib.Skin.PropertySheet.headerTextColor
+    self.tabBackgroundColor = UILib.Skin.PropertySheet.tabBackgroundColor
+    self.tabHoverColor = UILib.Skin.PropertySheet.tabHoverColor
+    self.tabActiveColor = UILib.Skin.PropertySheet.tabActiveColor
+    self.tabTextColor = UILib.Skin.PropertySheet.tabTextColor
+    self.tabActiveTextColor = UILib.Skin.PropertySheet.tabActiveTextColor
+    self.contentBackgroundColor = UILib.Skin.PropertySheet.contentBackgroundColor
+    self.tabCornerRadius = UILib.Skin.PropertySheet.tabCornerRadius
+    self.tabBorderWidth = UILib.Skin.PropertySheet.tabBorderWidth
+    self.headerFont = UILib.Skin.PropertySheet.headerFont
+    self.borderColor = UILib.Skin.PropertySheet.borderColor
+    self.tabBar = UILib.Panel:new(w, self.tabHeight, screen)
+    self.tabBar:setParent(self)
+    self.tabBar:setPos(0, 0)
+    self.tabBar:setClickable(true)
+    self.tabBar.backgroundColor = Color(0, 0, 0, 0)
+    
+    self.contentPanel = UILib.Panel:new(w, h - self.tabHeight, screen)
+    self.contentPanel:setParent(self)
+    self.contentPanel:setPos(0, self.tabHeight)
+    self.contentPanel.backgroundColor = self.contentBackgroundColor
+    self.padding = UILib.Skin.PropertySheet.padding or 8
+    
+    self.tabButtons = {}
+    self:calculateLayout()
+end
+
+function UILib.PropertySheet:calculateLayout()
+    self.contentArea = {
+        x = self.padding,
+        y = self.padding,
+        w = self.w,
+        h = self.h - self.tabHeight * 2
+    }
+    
+    self.tabArea = {
+        x = self.padding,
+        y = 0,
+        w = self.w - self.padding * 2,
+        h = self.tabHeight
+    }
+end
+
+function UILib.PropertySheet:addSheet(title, component, icon)
+    if not title or not component then return false end
+    
+    local sheet = {
+        title = title,
+        component = component,
+        id = #self.sheets + 1
+    }
+    
+    component:setParent(self.contentPanel)
+    component:setVisible(false)
+    component:setSize(self.contentArea.w, self.contentArea.h)
+    component:setPos(self.contentArea.x, self.contentArea.y)
+    component:moveToFront()
+    table.insert(self.sheets, sheet)
+    
+    local button = self:createTabButton(#self.sheets, title)
+    sheet.button = button
+    
+    if icon then 
+        button:setIcon(icon)
+    end    
+    
+    
+    if #self.sheets == 1 then
+        self:setSheet(1)
+    end
+    
+    self:updateTabLayout()
+    return sheet
+end
+
+function UILib.PropertySheet:createTabButton(index, title)
+    local tabButton = UILib.Button:new(0, self.tabHeight, self.screen)
+    tabButton:setParent(self.tabBar)
+    tabButton:setText(title)
+    --tabButton:setFont(self.headerFont)
+    
+    tabButton.backgroundColor = self.tabBackgroundColor
+    tabButton.backgroundHoverColor = self.tabHoverColor
+    tabButton.backgroundPressedColor = self.tabActiveColor
+    tabButton.textColor = self.tabTextColor
+    tabButton.cornerRadius = self.tabCornerRadius
+    //tabButton.borderWidth = 2
+    
+    tabButton:setRoundCorners({
+        top_left = true,
+        top_right = true,
+        bottom_left = false,
+        bottom_right = false
+    })
+    
+    tabButton.onClick = function(ply)
+        if index ~= self.currentSheetIndex then
+            self:setSheet(index)
+        end
+        tabButton:moveToFront()
+        return true
+    end
+    
+    self.tabButtons[index] = tabButton
+    
+    return tabButton
+end
+
+function UILib.PropertySheet:removeSheet(index)
+    if index < 1 or index > #self.sheets then return false end
+    
+    local sheet = self.sheets[index]
+    if sheet.component and sheet.component.destroy then
+        sheet.component:destroy()
+    end
+    
+    if self.tabButtons[index] and self.tabButtons[index].destroy then
+        self.tabButtons[index]:destroy()
+        self.tabButtons[index] = nil
+    end
+    
+    table.remove(self.sheets, index)
+    
+    local newTabButtons = {}
+    for i = 1, #self.sheets do
+        if i >= index then
+            local oldButton = self.tabButtons[i + 1]
+            if oldButton then
+                newTabButtons[i] = oldButton
+                oldButton.onClick = function(ply)
+                    if i ~= self.currentSheetIndex then
+                        self:setSheet(i)
+                    end
+                    return true
+                end
+            end
+        else
+            newTabButtons[i] = self.tabButtons[i]
+        end
+    end
+    self.tabButtons = newTabButtons
+    
+    if self.currentSheetIndex > #self.sheets then
+        self.currentSheetIndex = math.max(1, #self.sheets)
+    end
+    
+    if #self.sheets > 0 then
+        self:setSheet(self.currentSheetIndex)
+    else
+        self.currentSheetIndex = 0
+    end
+    
+    self:updateTabLayout()
+    return true
+end
+
+function UILib.PropertySheet:setSheet(index)
+    if index < 1 or index > #self.sheets then return false end
+    if index == self.currentSheetIndex then return true end
+    
+    if self.sheets[self.currentSheetIndex] then
+        self.sheets[self.currentSheetIndex].component:setVisible(false)
+        
+        if self.tabButtons[self.currentSheetIndex] then
+            self.tabButtons[self.currentSheetIndex].backgroundColor = self.tabBackgroundColor
+            self.tabButtons[self.currentSheetIndex].textColor = self.tabTextColor
+        end
+    end
+    
+    self.currentSheetIndex = index
+    
+    if self.sheets[self.currentSheetIndex] then
+        self.sheets[self.currentSheetIndex].component:setVisible(true)
+        
+        if self.tabButtons[self.currentSheetIndex] then
+            self.tabButtons[self.currentSheetIndex].backgroundColor = self.tabActiveColor
+            self.tabButtons[self.currentSheetIndex].textColor = self.tabActiveTextColor
+        end
+    end
+    
+    if self.onSheetChanged then
+        self:onSheetChanged(index, self.sheets[index].title)
+    end
+    
+    return true
+end
+
+function UILib.PropertySheet:updateTabLayout()
+    if not self.tabBarVisible or #self.sheets == 0 then 
+        self.tabBar:setVisible(false)
+        self.contentPanel:setPos(0, 0)
+        self.contentPanel:setSize(self.w, self.h)
+        return 
+    end
+    
+    self.tabBar:setVisible(true)
+    self.contentPanel:setPos(0, self.tabHeight)
+    self.contentPanel:setSize(self.w, self.h - self.tabHeight)
+    
+    local totalTabsWidth = 0
+    local tabWidths = {}
+    
+    render.setFont(self.headerFont)
+    for i, sheet in ipairs(self.sheets) do
+        //local textWidth = render.getTextSize(sheet.title)
+        local textWidth = self.tabButtons[i]:getTextSize()
+        local minWidth = textWidth + self.tabPadding * 2
+        tabWidths[i] = minWidth
+        totalTabsWidth = totalTabsWidth + minWidth + self.tabSpacing
+    end
+    
+    totalTabsWidth = totalTabsWidth - self.tabSpacing 
+    
+    local availableWidth = self.tabArea.w
+    if totalTabsWidth > availableWidth then
+        local uniformWidth = (availableWidth - (self.tabSpacing * (#self.sheets - 1))) / #self.sheets
+        for i = 1, #self.sheets do
+            tabWidths[i] = uniformWidth
+        end
+    end
+    
+    local currentX = self.tabArea.x
+    for i, tabButton in ipairs(self.tabButtons) do
+        if tabButton then
+            tabButton:setSize(tabWidths[i], self.tabHeight)
+            tabButton:setPos(currentX, self.tabArea.y)
+            currentX = currentX + tabWidths[i] + self.tabSpacing
+        end
+    end
+end
+
+function UILib.PropertySheet:setTabBarVisible(visible)
+    self.tabBarVisible = visible
+    self:calculateLayout()
+    self:updateSheetPositions()
+    self:updateTabLayout()
+end
+
+function UILib.PropertySheet:updateSheetPositions()
+    for i, sheet in ipairs(self.sheets) do
+        if sheet.component then
+            sheet.component:setSize(self.contentArea.w, self.contentArea.h)
+            sheet.component:setPos(self.contentArea.x, self.contentArea.y)
+        end
+    end
+end
+
+function UILib.PropertySheet:_draw()
+end
+
+function UILib.PropertySheet:setSize(w, h)
+    UILib.Component.setSize(self, w, h)
+    self.tabBar:setSize(w, self.tabHeight)
+    self.contentPanel:setSize(w, h - self.tabHeight)
+    self:calculateLayout()
+    self:updateTabLayout()
+    self:updateSheetPositions()
+end
+
+function UILib.PropertySheet:setPos(x, y, absolute)
+    UILib.Component.setPos(self, x, y, absolute)
+    self:calculateLayout()
+    self:updateTabLayout()
+    self:updateSheetPositions()
+end
+
+function UILib.PropertySheet:nextSheet()
+    local nextIndex = self.currentSheetIndex % #self.sheets + 1
+    return self:setSheet(nextIndex)
+end
+
+function UILib.PropertySheet:previousSheet()
+    local prevIndex = (self.currentSheetIndex - 2) % #self.sheets + 1
+    return self:setSheet(prevIndex)
+end
+
+function UILib.PropertySheet:getCurrentSheet()
+    return self.sheets[self.currentSheetIndex]
+end
+
+function UILib.PropertySheet:getSheetCount()
+    return #self.sheets
+end
+
+function UILib.PropertySheet:getSheetIndex()
+    return self.currentSheetIndex
+end
+
+function UILib.PropertySheet:addTextSheet(title, text)
+    local panel = UILib.Panel:new(0, 0, self.screen)
+    local label = UILib.Label:new(text, self.screen)
+    label:setParent(panel)
+    label:setAlignment(UILib.Alignment.MIDDLE)
+    return self:addSheet(title, panel)
+end
+
+function UILib.PropertySheet:clearSheets()
+    for i = #self.sheets, 1, -1 do
+        self:removeSheet(i)
+    end
+end
+
+function UILib.PropertySheet:getSheetTitle(index)
+    if index and self.sheets[index] then
+        return self.sheets[index].title
+    elseif self.sheets[self.currentSheetIndex] then
+        return self.sheets[self.currentSheetIndex].title
+    end
+    return ""
+end
+
+function UILib.PropertySheet:findSheetByTitle(title)
+    for i, sheet in ipairs(self.sheets) do
+        if sheet.title == title then
+            return i
+        end
+    end
+    return nil
+end
+
+function UILib.PropertySheet:onSheetChanged(newIndex, newTitle)
+end
+
+function UILib.PropertySheet:onSheetAdded(sheetIndex, sheetTitle)
+end
+
+function UILib.PropertySheet:onSheetRemoved(sheetIndex, sheetTitle)
+end
+
+function UILib.PropertySheet:destroy()
+    for i, tabButton in ipairs(self.tabButtons) do
+        if tabButton and tabButton.destroy then
+            tabButton:destroy()
+        end
+    end
+    self.tabButtons = {}
+    
+    self:clearSheets()
+    
+    if self.tabBar and self.tabBar.destroy then
+        self.tabBar:destroy()
+    end
+    
+    if self.contentPanel and self.contentPanel.destroy then
+        self.contentPanel:destroy()
+    end
+    
+    UILib.Component.destroy(self)
+end

@@ -1,0 +1,149 @@
+--@name UILib Window
+--@author soldnotsold
+--@client
+--@include uilib/components/label.txt
+--@include uilib/components/button.txt
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+if not UILib.Button then
+    require("uilib/button.txt")
+end
+
+if not UILib.Label then
+    require("uilib/label.txt")
+end    
+
+
+local table = table
+local math = math
+local render = render
+
+--[[
+ __      ___         _            
+ \ \    / (_)_ _  __| |_____ __ __
+  \ \/\/ /| | ' \/ _` / _ \ V  V /
+   \_/\_/ |_|_||_\__,_\___/\_/\_/                                
+--]]
+
+---@class UILib.Window: UILib.Component
+UILib.Window = class("Window", UILib.Component)
+
+function UILib.Window:initialize(w,h, screen)
+    UILib.Component.initialize(self, 6,6, w,h, true, screen)
+
+    self.label = nil
+    self.showCloseButton = true
+    self.panelTopHeight = UILib.Skin.Window.panelTopHeight
+    self.panelTopPad = UILib.Skin.Window.panelTopPad
+    
+    self.closeButton = UILib.Button:new(self.panelTopHeight, self.panelTopHeight)
+    self.closeButton:setText("X")
+    self.closeButton:setParent(self, true)
+    self.closeButton:setPos(self.w - self.closeButton.w, 0, false, true)
+    self.closeButton:setPreventScrolling(true)    
+    self.allowDrag = true  
+    
+    self.dragOffsetX = 0
+    self.dragOffsetY = 0
+    self.isDragging = false
+    
+    self.closeButtonColor = UILib.Skin.Window.closeButtonColor
+    self.closeButtonHoverColor = UILib.Skin.Window.closeButtonHoverColor
+    self.closeButtonTextColor = UILib.Skin.Window.closeButtonTextColor
+
+    self.panelTopColor = UILib.Skin.Window.panelTopColor //unused, used for line
+    self.panelTopTextColor = UILib.Skin.Panel.panelTopTextColor
+    self.panelTopFont = UILib.Skin.Window.panelTopFont
+    self.panelTopPad = UILib.Skin.Window.panelTopPad
+    
+    function self.closeButton:onClick()
+        self.parent:destroy()
+        return true
+    end
+end
+
+function UILib.Window:getXOffset()
+    return 0 
+end
+
+function UILib.Window:getYOffset()
+    return self.panelTopHeight
+end
+
+
+
+function UILib.Window:onMousePressed(x, y, button)
+    self:moveToFront()
+end
+
+function UILib.Window:onDragStart(x, y, button)
+    if not self.draggable then return false end
+    
+    self.dragOffsetX = x - self.x
+    self.dragOffsetY = y - self.y
+    self.isDragging = true
+    
+    return true
+end
+
+function UILib.Window:onDrag(mouseX, mouseY, deltaX, deltaY)
+    if not self.isDragging then return end
+    
+    local newX = mouseX - self.dragOffsetX
+    local newY = mouseY - self.dragOffsetY
+    
+    if self.constrainToScreen then
+        --newX = math.max(0, math.min(newX, self.screen.w - self.w))
+        --newY = math.max(0, math.min(newY, self.screen.h - self.h))
+    end
+    
+    self:setPos(newX, newY, true)
+end
+
+function UILib.Window:onDragEnd(x, y, button)
+    self.isDragging = false
+    return true
+end
+
+
+function UILib.Window:setText(text)
+    if not self.label then
+        self.label = UILib.Label:new(text, screen)
+        self.label:setFont(self.panelTopFont)
+        self.label:setParent(self, true)
+        self.label:setPos(self.panelTopPad, self.panelTopPad, false, true)
+        self.label:setPreventScrolling(true)
+        self.label:setDraggable(true)
+        return
+    end
+    self.label:setText(text)
+end
+
+function UILib.Window:setSize(w,h)
+    UILib.Component.setSize(self, w, h)
+    if self.label then
+        self.label:setPos(self.panelTopPad, self.panelTopPad, false, true)
+    end
+    if self.closeButton then
+        self.closeButton:setPos(self.w - self.closeButton.w, 0, false, true)
+    end
+end
+
+function UILib.Window:setIcon(icon)
+    if not self.label then return end
+    return self.label:setIcon(icon)
+end
+
+
+function UILib.Window:_draw()
+    
+    render.setColor(self.backgroundColor)
+    render.drawRoundedBox(self.cornerRadius, self.x, self.y, self.w, self.h)
+    
+    render.setColor(self.panelTopColor)
+    render.drawLine(self.x, self.y +self.panelTopHeight, self.x + self.w, self.y + self.panelTopHeight)
+
+end

@@ -1,0 +1,211 @@
+--@name UILib Button
+--@author soldnotsold
+--@client
+--@include uilib/components/label.txt
+
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+if not UILib.Label then
+    require("uilib/components/label.txt")
+end
+
+local table = table
+local math = math
+local render = render
+
+--[[
+  ___      _   _            
+ | _ )_  _| |_| |_ ___ _ _  
+ | _ \ || |  _|  _/ _ \ ' \ 
+ |___/\_,_|\__|\__\___/_||_|
+--]]
+
+
+---@class UILib.Button: UILib.Component
+---@field protected text string 
+---@field protected label Label | nil
+---@field protected enabled boolean
+---@field protected togglable boolean
+---@field protected toggled boolean
+---@field protected toggledText string | nil
+UILib.Button = class("Button", UILib.Component)
+
+function UILib.Button:initialize(w,h, screen)
+    UILib.Component.initialize(self, 0,0, w,h, true, screen)
+    self.text = "Button"
+    ---@type UILib.Label
+    self.label = UILib.Label:new(self.text, screen)
+
+    self.label:setParent(self)
+    self.label.propagateInput = true
+    
+    self:setText(self.text)
+    self.enabled = true
+    
+    self.togglable = false
+    self.toggled = false
+    self.toggledText = nil  
+    self.toggledBackgroundColor = nil --TODO COLORS
+    self.toggledTextColor = nil --TODO
+    
+    --Skin
+    self.backgroundHoverColor = UILib.Skin.Button.backgroundHoverColor
+    self.backgroundPressedColor = UILib.Skin.Button.backgroundPressedColor
+    self.borderPressedColor = UILib.Skin.Button.borderPressedColor
+    self.borderWidth = UILib.Skin.Button.borderWidth
+    self.borderColor = UILib.Skin.Button.borderColor
+end
+
+---Sets text
+---@param text string text
+function UILib.Button:setText(text)
+    self.text = text
+    if self.label then 
+        self.label:setText(text)
+        self.label:setAlignment(UILib.Alignment.MIDDLE)
+    end
+    if self.font then self.label:setFont(self.font) end
+    if self.textColor then self.label.textColor = self.textColor end
+end
+
+---Returns size of a Label
+---@return integer w width
+---@return integer h height
+function UILib.Button:getTextSize() 
+    if not self.label then return 0, 0 end
+    return self.label.w, self.label.h
+end
+
+---@private
+function UILib.Button:_draw()
+    local bgColor = self.backgroundColor
+    local textColor = self.textColor
+    
+    if self.togglable and self.toggled then
+        if self.toggledBackgroundColor then
+            bgColor = self.toggledBackgroundColor
+        else
+            bgColor = self.backgroundPressedColor or bgColor
+        end
+        
+        if self.toggledTextColor then
+            textColor = self.toggledTextColor
+        end
+    elseif self.isPressed then
+        bgColor = self.backgroundPressedColor or bgColor
+    end
+    
+    if textColor ~= self.label.textColor then
+        self.label.textColor = textColor
+    end
+    
+    render.setColor(self.borderColor)
+    if self.borderWidth then
+        render.drawRoundedBoxEx(self.cornerRadius, self.x, self.y, self.w, self.h, self.roundedCorners.top_left, self.roundedCorners.top_right, self.roundedCorners.bottom_left, self.roundedCorners.bottom_right)
+    else
+        render.drawRect(self.x, self.y, self.w, self.h)
+    end
+
+    render.setColor(bgColor)
+    if self.cornerRadius then
+        render.drawRoundedBoxEx(self.cornerRadius, self.x+self.borderWidth, self.y+self.borderWidth, self.w-self.borderWidth*2, self.h-self.borderWidth*2, self.roundedCorners.top_left, self.roundedCorners.top_right, self.roundedCorners.bottom_left, self.roundedCorners.bottom_right)
+    else
+        render.drawRect(self.x+self.borderWidth, self.y+self.borderWidth, self.w-self.borderWidth*2, self.h-self.borderWidth*2)
+    end
+end
+
+---Draws when clicked
+function UILib.Button:drawClicked()
+    render.setColor(self.backgroundPressedColor)
+    render.drawRoundedBox(self.cornerRadius, self.x+self.borderWidth, self.y+self.borderWidth, self.w-self.borderWidth*2, self.h-self.borderWidth*2)
+end
+
+---Sets enabled state
+---@param state boolean
+function UILib.Button:setEnabled(state)
+    self.enabled = state
+end
+
+---Sets an Icon
+---@see UILib.Label.setIcon
+function UILib.Button:setIcon(icon)
+    if not self.label then return end
+    return self.label:setIcon(icon)
+end
+
+---Makes button togglable
+---@param state boolean
+function UILib.Button:setTogglable(state)
+    self.togglable = state
+    return self
+end
+
+---Makes button toggled
+---@param state boolean
+function UILib.Button:setToggled(state)
+    local oldState = self.toggled
+    self.toggled = state
+    local displayText = self.text
+    
+    if oldState ~= state then
+        if state then
+            if self.toggledText then
+                displayText = self.toggledText
+            end
+        end
+        self:onToggle(state)
+    end
+    
+    if displayText ~= self.label.text then
+        self.label:setText(displayText)
+    end
+    
+    return self
+end
+
+---@deprecated ?
+function UILib.Button:toggle(state)
+    return self:setToggled(not self.toggled)
+end
+
+---Returns toggle state
+---@return boolean toggled
+function UILib.Button:getToggled()
+    return self.toggled
+end
+
+---Sets text that will be displayed when button is toggled
+function UILib.Button:setToggledText(text)
+    self.toggledText = text
+    return self
+end
+
+---@deprecated ?
+function UILib.Button:setToggledColors(background, text)
+    self.toggledBackgroundColor = background
+    self.toggledTextColor = text
+    return self
+end
+
+---Called when button was clicked
+function UILib.Button:onClick(ply)
+    if self.togglable then
+        self:toggle(true)
+    end
+    return false
+end
+
+function UILib.Button:onMouseReleased()
+    if not self.enabled then return false end
+    return true
+end
+
+function UILib.Button:onMousePressed()
+    if not self.enabled then return false end
+    return true
+end
+
+function UILib.Button:onToggle(state) end

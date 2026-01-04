@@ -1,0 +1,239 @@
+--@name UILib Aero Skin
+--@author soldnotsold
+--@client
+
+
+local AeroSkin = {}
+
+
+AeroSkin.Component = {
+    textColor = Color(240, 248, 255),            
+    backgroundColor = Color(175, 238, 238, 220), 
+    borderColor = Color(255, 255, 255, 180),
+    borderWidth = 2,
+    cornerRadius = 16,
+    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    padding = 12,
+    margin = 8
+}
+
+AeroSkin.Label = {
+    textColor = Color(25, 25, 112),
+    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+}
+
+AeroSkin.Button = {
+    textColor = Color(255, 255, 255),
+    backgroundColor = Color(64, 224, 208, 230),
+    backgroundHoverColor = Color(72, 209, 204, 250), 
+    backgroundPressedColor = Color(32, 178, 170, 255), 
+    borderColor = Color(255, 255, 255, 200),     
+    borderPressedColor = Color(255, 255, 255, 255),
+    borderWidth = 2,
+    cornerRadius = 20,                          
+    font = UILib.createFont("Coolvetica", 14, 600, false, false, false, false, 0, false, 0),
+    padding = 16,
+    margin = AeroSkin.Component.margin
+}
+
+AeroSkin.Panel = {
+    textColor = Color(240, 248, 255),
+    backgroundColor = Color(135, 206, 250, 180),
+    borderColor = Color(255, 255, 255, 160),
+    borderWidth = 2,
+    cornerRadius = 16,
+    font = AeroSkin.Component.font,
+    padding = AeroSkin.Component.padding,
+    margin = AeroSkin.Component.margin,
+    scrollbarColor = Color(255, 255, 255, 120),    
+    scrollbarHoverColor = Color(255, 255, 255, 180),  
+    scrollbarActiveColor = Color(64, 224, 208, 255),
+    scrollbarCornerRadius = 8,
+    panelTopHeight = 45,
+    panelTopColor = Color(64, 224, 208, 220),
+    panelTopTextColor = Color(255, 255, 255),
+    panelTopFont = UILib.createFont("Coolvetica", 16, 600, false, false, false, false, 0, false, 0),
+    panelTopPad = 12
+}
+
+AeroSkin.Window = {
+    textColor = AeroSkin.Panel.textColor,
+    backgroundColor = Color(135, 206, 235, 190),
+    borderColor = Color(255, 255, 255, 180),
+    borderWidth = 2,
+    cornerRadius = 20,           
+    font = AeroSkin.Panel.font,
+    padding = AeroSkin.Panel.padding,
+    margin = AeroSkin.Panel.margin,
+    
+    panelTopHeight = 45,
+    panelTopColor = Color(70, 130, 180, 220),  
+    panelTopTextColor = Color(255, 255, 255),   
+    panelTopFont = AeroSkin.Panel.panelTopFont,
+    panelTopPad = 12,
+    
+    closeButtonColor = Color(255, 105, 97, 230),
+    closeButtonHoverColor = Color(255, 69, 58, 250),
+    closeButtonTextColor = Color(255, 255, 255) 
+}
+
+AeroSkin.ProgressBar = {
+    textColor = Color(255, 255, 255),           
+    backgroundColor = Color(176, 224, 230, 200), 
+    progressColor = Color(50, 205, 50, 230),     
+    borderColor = Color(255, 255, 255, 160),    
+    borderWidth = 2,
+    cornerRadius = 12,
+    font = UILib.createFont("Coolvetica", 12, 400, false, false, false, false, 0, false, 0),
+    padding = AeroSkin.Component.padding,
+    margin = AeroSkin.Component.margin,
+    height = 28,
+}
+
+AeroSkin.SegmentedProgressBar = {
+    textColor = AeroSkin.ProgressBar.textColor,
+    backgroundColor = AeroSkin.ProgressBar.backgroundColor,
+    progressColor = AeroSkin.ProgressBar.progressColor,
+    borderColor = AeroSkin.ProgressBar.borderColor,
+    borderWidth = AeroSkin.ProgressBar.borderWidth,
+    cornerRadius = AeroSkin.ProgressBar.cornerRadius,
+    font = AeroSkin.ProgressBar.font,
+    padding = AeroSkin.ProgressBar.padding,
+    margin = AeroSkin.ProgressBar.margin,
+    height = AeroSkin.ProgressBar.height,
+    
+    segmentColor = AeroSkin.ProgressBar.progressColor,
+    segmentBackgroundColor = Color(176, 224, 230, 200),
+    segmentBorderColor = Color(255, 255, 255, 160),
+    segmentGap = 3
+}
+
+AeroSkin.Slider = {
+    trackColor = Color(173, 216, 230, 200),      
+    trackProgressColor = Color(64, 224, 208, 230), 
+    thumbColor = Color(255, 255, 255, 255),      
+    thumbHoverColor = Color(240, 255, 255, 255), 
+    thumbActiveColor = Color(255, 255, 255, 255), 
+    borderColor = Color(255, 255, 255, 180),     
+    valueTextBackgroundColor = Color(135, 206, 235, 220),
+    textColor = Color(25, 25, 112)
+}
+
+AeroSkin.TerminalLine = {
+    textColor = Color(240, 248, 255),           
+    backgroundColor = Color(0, 104, 139, 220),  
+    font = UILib.createFont("Roboto Mono", 14, 400, false, false, false, false, 0, false, 0),
+    promptColor = Color(152, 251, 152, 255),     
+    selectionColor = Color(64, 224, 208, 100), 
+    lineHeight = 20,
+    charWidth = 9
+}
+
+AeroSkin.Terminal = {
+    textColor = AeroSkin.TerminalLine.textColor,
+    backgroundColor = Color(0, 104, 139, 240),   
+    promptColor = AeroSkin.TerminalLine.promptColor,
+    inputColor = Color(240, 248, 255),          
+    cursorColor = Color(255, 255, 255),         
+    selectionColor = AeroSkin.TerminalLine.selectionColor,
+    terminalBorderColor = Color(255, 255, 255, 160),
+    terminalLineHeight = AeroSkin.TerminalLine.lineHeight,
+}
+
+AeroSkin.Dropdown = {
+    backgroundExpandedColor = Color(135, 206, 235, 220),
+    optionBackgroundColor = Color(175, 238, 238, 220),
+    optionHoverColor = Color(64, 224, 208, 230), 
+    optionTextColor = Color(25, 25, 112),        
+    panelBackgroundColor = Color(175, 238, 238, 220),
+    optionCornerRadius = 12,
+}
+
+AeroSkin.PropertySheet = {
+    headerHeight = 48,
+    headerBackgroundColor = Color(70, 130, 180, 220),
+    headerTextColor = Color(255, 255, 255),
+    headerFont = UILib.createFont("Coolvetica", 16, 600, false, false, false, false, 0, false, 0),
+    tabHeight = 38,
+    tabBackgroundColor = Color(176, 224, 230, 200), 
+    tabHoverColor = Color(64, 224, 208, 230),
+    tabActiveColor = Color(50, 205, 50, 230),
+    tabTextColor = Color(25, 25, 112), 
+    tabActiveTextColor = Color(255, 255, 255),   
+    tabCornerRadius = 12,
+    tabPadding = 16,
+    tabSpacing = -1,
+    tabBorderWidth = 2,
+    contentBackgroundColor = Color(135, 206, 235, 180),
+    borderColor = Color(255, 255, 255, 160),
+    borderWidth = 2,
+    cornerRadius = 16
+}
+
+AeroSkin.Checkbox = {
+    size = 20,
+    backgroundColor = Color(175, 238, 238, 220),
+    backgroundHoverColor = Color(64, 224, 208, 230),
+    borderColor = Color(255, 255, 255, 180),
+    borderHoverColor = Color(255, 255, 255, 220),
+    checkColor = Color(50, 205, 50, 255),
+    checkHoverColor = Color(144, 238, 144, 255),
+    borderWidth = 2,
+    cornerRadius = 4, 
+    textColor = Color(25, 25, 112),
+    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    textPadding = 8
+}
+
+AeroSkin.Icon = {
+    size = 28,
+}
+
+AeroSkin.RadioButton = {
+    size = 20,
+    backgroundColor = Color(175, 238, 238, 220),
+    backgroundHoverColor = Color(64, 224, 208, 230),
+    borderColor = Color(255, 255, 255, 180),
+    borderHoverColor = Color(255, 255, 255, 220),
+    dotColor = Color(50, 205, 50, 255),          
+    dotHoverColor = Color(144, 238, 144, 255),  
+    borderWidth = 2,
+    textColor = Color(25, 25, 112),
+    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    textPadding = 8
+}
+
+AeroSkin.Marquee = {
+    backgroundColor = Color(0, 104, 139, 200),
+    speed = 50,
+    direction = "left",
+    gap = 30,
+    fadeEdges = false,
+    fadeWidth = 30,
+    smoothScrolling = true
+}
+
+AeroSkin.TextMarquee = {
+    textColor = Color(240, 248, 255),
+    font = UILib.createFont("Coolvetica", 16, 600, false, false, false, false, 0, false, 0),
+    spacing = 0
+}
+
+AeroSkin.Colors = {
+    OceanBlue = Color(0, 104, 139),
+    SkyBlue = Color(135, 206, 235),
+    Turquoise = Color(64, 224, 208),
+    LimeGreen = Color(50, 205, 50),
+    PaleGreen = Color(152, 251, 152),
+    PowderBlue = Color(176, 224, 230),
+    PaleTurquoise = Color(175, 238, 238),
+    SteelBlue = Color(70, 130, 180),
+    AliceBlue = Color(240, 248, 255),
+    MidnightBlue = Color(25, 25, 112),
+    Coral = Color(255, 127, 80),
+    GlassWhite = Color(255, 255, 255, 160)
+}
+
+
+
+return AeroSkin

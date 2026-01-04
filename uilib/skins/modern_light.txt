@@ -1,0 +1,222 @@
+--@name UILib Modern Light Skin
+--@author soldnotsold
+--@client
+
+
+local ModernSkin = {}
+
+ModernSkin.Component = {
+    textColor = Color(33, 33, 33),            
+    backgroundColor = Color(255, 255, 255),     
+    borderColor = Color(226, 232, 240),  
+    borderWidth = 1,
+    cornerRadius = 8,                         
+    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    padding = 12,
+    margin = 8
+}
+
+ModernSkin.Label = {
+    textColor = Color(33, 33, 33),             
+    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+}
+
+ModernSkin.Button = {
+    textColor = Color(255, 255, 255),           
+    backgroundColor = Color(59, 130, 246),    
+    backgroundHoverColor = Color(37, 99, 235),  
+    backgroundPressedColor = Color(29, 78, 216),
+    borderColor = Color(59, 130, 246),           
+    borderPressedColor = Color(29, 78, 216), 
+    borderWidth = 1,
+    cornerRadius = 8,                           
+    font = UILib.createFont("Coolvetica", 14, 500, false, false, false, false, 0, false, 0),
+    padding = 12,
+    margin = ModernSkin.Component.margin
+}
+
+ModernSkin.Panel = {
+    textColor = Color(33, 33, 33),           
+    backgroundColor = Color(248, 250, 252),     
+    borderColor = Color(226, 232, 240),        
+    borderWidth = 1,
+    cornerRadius = 12, 
+    font = ModernSkin.Component.font,
+    padding = ModernSkin.Component.padding,
+    margin = ModernSkin.Component.margin,
+    scrollbarColor = Color(203, 213, 225), 
+    scrollbarHoverColor = Color(148, 163, 184), 
+    scrollbarActiveColor = Color(59, 130, 246),
+    scrollbarCornerRadius = 6, 
+    panelTopHeight = 48,
+    panelTopColor = Color(248, 250, 252),
+    panelTopTextColor = Color(15, 23, 42),
+    panelTopFont = UILib.createFont("Coolvetica", 16, 600, false, false, false, false, 0, false, 0),
+    panelTopPad = 16
+}
+
+ModernSkin.Window = {
+    textColor = ModernSkin.Panel.textColor,
+    backgroundColor = Color(255, 255, 255),
+    borderColor = Color(226, 232, 240),
+    borderWidth = 1,
+    cornerRadius = 12, 
+    font = ModernSkin.Panel.font,
+    padding = ModernSkin.Panel.padding,
+    margin = ModernSkin.Panel.margin,
+    
+    panelTopHeight = 48,
+    panelTopColor = Color(255, 255, 255),  
+    panelTopTextColor = Color(15, 23, 42),    
+    panelTopFont = ModernSkin.Panel.panelTopFont,
+    panelTopPad = 16,
+    
+    closeButtonColor = Color(239, 68, 68),      
+    closeButtonHoverColor = Color(220, 38, 38),  
+    closeButtonTextColor = Color(255, 255, 255) 
+}
+
+ModernSkin.ProgressBar = {
+    textColor = Color(255, 255, 255),          
+    backgroundColor = Color(190, 190, 190),     
+    progressColor = Color(59, 130, 246),   
+    borderColor = Color(226, 232, 240),     
+    borderWidth = 0,
+    cornerRadius = 6,                   
+    font = UILib.createFont("Coolvetica", 12, 500, false, false, false, false, 0, false, 0),
+    padding = ModernSkin.Component.padding,
+    margin = ModernSkin.Component.margin,
+    height = 24,
+}
+
+ModernSkin.SegmentedProgressBar = {
+    textColor = ModernSkin.ProgressBar.textColor,
+    backgroundColor = ModernSkin.ProgressBar.backgroundColor,
+    progressColor = ModernSkin.ProgressBar.progressColor,
+    borderColor = ModernSkin.ProgressBar.borderColor,
+    borderWidth = ModernSkin.ProgressBar.borderWidth,
+    cornerRadius = ModernSkin.ProgressBar.cornerRadius,
+    font = ModernSkin.ProgressBar.font,
+    padding = ModernSkin.ProgressBar.padding,
+    margin = ModernSkin.ProgressBar.margin,
+    height = ModernSkin.ProgressBar.height,
+    
+    segmentColor = ModernSkin.ProgressBar.progressColor,
+    segmentBackgroundColor = Color(226, 232, 240),
+    segmentBorderColor = Color(203, 213, 225),
+    segmentGap = 2
+}
+
+ModernSkin.Slider = {
+    trackColor = Color(226, 232, 240),         
+    trackProgressColor = Color(59, 130, 246),   
+    thumbColor = Color(255, 255, 255),       
+    thumbHoverColor = Color(248, 250, 252),     
+    thumbActiveColor = Color(255, 255, 255),    
+    borderColor = Color(203, 213, 225),          
+    valueTextBackgroundColor = Color(70, 70, 70, 90),
+    valueTextBackgroundCornerRadius = 4,
+    textColor = Color(100, 100, 100)             
+}
+
+ModernSkin.TerminalLine = {
+    textColor = Color(248, 250, 252),          
+    backgroundColor = Color(15, 23, 42),        
+    font = UILib.createFont("Roboto Mono", 24, 400, false, false, false, false, 0, false, 0),
+    promptColor = Color(34, 197, 94),          
+    selectionColor = Color(59, 130, 246, 100),  
+    lineHeight = 20,
+    charWidth = 8
+}
+
+ModernSkin.Terminal = {
+    textColor = ModernSkin.TerminalLine.textColor,
+    backgroundColor = Color(15, 23, 42),        
+    promptColor = ModernSkin.TerminalLine.promptColor,
+    inputColor = Color(248, 250, 252),          
+    cursorColor = Color(248, 250, 252),         
+    selectionColor = ModernSkin.TerminalLine.selectionColor,
+    terminalBorderColor = Color(30, 41, 59),
+    terminalLineHeight = ModernSkin.TerminalLine.lineHeight,
+}
+
+ModernSkin.Dropdown = {
+    backgroundExpandedColor = Color(255, 255, 255),
+    optionBackgroundColor = Color(255, 255, 255),
+    optionHoverColor = Color(248, 250, 252),    
+    optionTextColor = Color(33, 33, 33),       
+    panelBackgroundColor = Color(255, 255, 255),
+    optionCornerRadius = 6,                      
+}
+
+ModernSkin.PropertySheet = {
+    headerHeight = 52,
+    headerBackgroundColor = Color(255, 255, 255),
+    headerTextColor = Color(15, 23, 42),
+    headerFont = UILib.createFont("Coolvetica", 16, 600, false, false, false, false, 0, false, 0),
+    tabHeight = 40,
+    tabBackgroundColor = Color(248, 250, 252),   
+    tabHoverColor = Color(241, 245, 249),        
+    tabActiveColor = Color(59, 130, 246),        
+    tabTextColor = Color(100, 116, 139),         
+    tabActiveTextColor = Color(255, 255, 255),   
+    tabCornerRadius = 8,                        
+    tabPadding = 20,
+    tabSpacing = 0,                             
+    tabBorderWidth = 0,
+    contentBackgroundColor = Color(255, 255, 255),
+    borderColor = Color(226, 232, 240),
+    borderWidth = 1,
+    cornerRadius = 12                           
+}
+
+ModernSkin.Checkbox = {
+    size = 20,
+    backgroundColor = Color(255, 255, 255),
+    backgroundHoverColor = Color(248, 250, 252),
+    borderColor = Color(203, 213, 225),
+    borderHoverColor = Color(148, 163, 184),
+    checkColor = Color(59, 130, 246),           
+    checkHoverColor = Color(37, 99, 235),        
+    borderWidth = 1,
+    cornerRadius = 4,                           
+    textColor = Color(33, 33, 33),
+    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    textPadding = 10
+}
+
+ModernSkin.Icon = {
+    size = 24,
+}
+
+ModernSkin.RadioButton = {
+    size = 20,
+    backgroundColor = Color(255, 255, 255),
+    backgroundHoverColor = Color(248, 250, 252),
+    borderColor = Color(203, 213, 225),
+    borderHoverColor = Color(148, 163, 184),
+    dotColor = Color(59, 130, 246),             
+    dotHoverColor = Color(37, 99, 235),         
+    borderWidth = 2,
+    textColor = Color(33, 33, 33),
+    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    textPadding = 10
+}
+
+ModernSkin.Marquee = {
+    backgroundColor = Color(40, 40, 40, 200),   
+    speed = 50,
+    direction = "left",
+    gap = 40,
+    fadeEdges = true,
+    fadeWidth = 40,
+    smoothScrolling = true
+}
+
+ModernSkin.TextMarquee = {
+    textColor = Color(248, 250, 252),           
+    font = UILib.createFont("Coolvetica", 16, 500, false, false, false, false, 0, false, 0),
+    spacing = 0
+}
+
+return ModernSkin

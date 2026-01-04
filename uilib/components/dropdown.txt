@@ -1,0 +1,347 @@
+--@name UILib Dropdown
+--@author soldnotsold
+--@client
+--@include uilib/components/button.txt
+--@include uilib/components/panel.txt
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+if not UILib.Label then
+    require("uilib/components/label.txt")
+end
+
+if not UILib.Button then
+    require("uilib/components/button.txt")
+end
+
+if not UILib.Panel then
+    require("uilib/components/panel.txt")
+end
+
+local table = table
+local math = math
+local render = render
+
+--[[
+   ___                   __              
+  / _ \_______  ___  ___/ /__ _    _____ 
+ / // / __/ _ \/ _ \/ _  / _ \ |/|/ / _ \
+/____/_/  \___/ .__/\_,_/\___/__,__/_//_/
+             /_/                         
+--]]
+
+---@class UILib.Dropdown: UILib.Component
+UILib.Dropdown = class("Dropdown", UILib.Component)
+
+function UILib.Dropdown:initialize(w, h, screen)
+    UILib.Component.initialize(self, 0, 0, w, h, true, screen)
+    
+    self.options = {}
+    self.indexes = {}
+    self.selectedIndex = 1
+    self.expanded = false
+    self.optionHeight = 25
+    self.maxVisibleOptions = 5
+    
+    self.mainButton = UILib.Button:new(w, h, screen)
+    self.mainButton:setParent(self)
+    self.mainButton:setPos(0, 0)
+    self.mainButton.onClick = function(ply)
+        self:toggle()
+        return true
+    end
+    self.mainButton:setText("Select...")
+    
+    self.optionsPanel = UILib.Panel:new(w, self.optionHeight*self.maxVisibleOptions, screen)
+    self.optionsPanel:setParent(self)
+    self.optionsPanel:setPos(0, h)
+    self.optionsPanel:setClickable(true)
+    self.optionsPanel:setInputPropagation(false)
+    self.optionsPanel:setScrollable(true)
+    self.optionsPanel.clippingEnabled = true
+    self.optionsPanel:setVisible(false)
+    self.optionsPanel.backgroundColor = UILib.Skin.Dropdown.panelBackgroundColor
+
+    
+    self.backgroundExpandedColor = UILib.Skin.Dropdown.backgroundExpandedColor
+    self.optionBackgroundColor = UILib.Skin.Dropdown.optionBackgroundColor
+    self.optionHoverColor = UILib.Skin.Dropdown.optionHoverColor
+    self.optionTextColor = UILib.Skin.Dropdown.optionTextColor
+    self.optionCornerRadius = UILib.Skin.Dropdown.optionCornerRadius
+end
+
+function UILib.Dropdown:setText(text)
+    return self.mainButton:setText(text)
+end
+
+function UILib.Dropdown:addOption(component, id)
+    if not component then return end
+    
+    component:setParent(self.optionsPanel)
+    component:setPos(0, #self.options * self.optionHeight)
+    component:setSize(self.w - (self.optionsPanel.maxScrollY > 0 and self.optionsPanel.scrollbarSize or 0), self.optionHeight)
+    component:setClickable(true)
+    component:setVisible(true) 
+    
+    local originalOnClick = component.onClick
+    local optionIdx = #self.options + 1
+    
+    component.onClick = function(ply)
+        debugprint("clicked on option component ", optionIdx, " ", component.id)
+        self:selectOption(optionIdx)
+        self:collapse()
+        if originalOnClick then
+            originalOnClick(ply)
+        end
+    end
+    
+    table.insert(self.options, component)
+    self.indexes[component] = id
+    self:updateOptionsPanel()
+    
+    return component
+end
+
+function UILib.Dropdown:addTextOption(text, id)
+    local optionBg = UILib.Component:new(0, 0, self.w, self.optionHeight, true, self.screen)
+    optionBg.backgroundColor = self.optionBackgroundColor
+    optionBg:setVisible(true)
+    
+    local label = UILib.Label:new(text, self.screen)
+    label:setColor(self.optionTextColor)
+    label:setAlignment(UILib.Alignment.MIDDLE_LEFT)
+    label.padding = 5
+    label:setParent(optionBg)
+    label:setVisible(true)
+    
+    local originalColor = optionBg.backgroundColor
+    optionBg.onMouseEnter = function(x, y)
+        optionBg.backgroundColor = self.optionHoverColor
+    end
+    
+    optionBg.onMouseLeave = function(x, y)
+        optionBg.backgroundColor = originalColor
+    end
+    
+    optionBg.draw = function()
+        render.setColor(optionBg.backgroundColor)
+        if self.optionCornerRadius then
+            render.drawRoundedBox(self.optionCornerRadius, optionBg.x, optionBg.y, optionBg.w, optionBg.h)
+        else
+            render.drawRectFast(optionBg.x, optionBg.y, optionBg.w, optionBg.h)
+        end
+    end
+    
+    self:addOption(optionBg, id)
+    
+    return optionBg
+end
+
+function UILib.Dropdown:selectOption(index)
+    if index < 1 or index > #self.options then return end
+    
+    self.selectedIndex = index
+    
+    local selectedOption = self.options[index]
+    if selectedOption then
+
+        for _, child in ipairs(selectedOption.children) do
+            if child:isInstanceOf(UILib.Label) then
+                self.mainButton:setText(child.text)
+                break
+            end
+        end
+    end
+    
+    if self.onOptionSelected then
+        self:onOptionSelected(index, selectedOption, self.indexes[selectedOption])
+    end
+end
+
+function UILib.Dropdown:getSelectedOption()
+    return self.options[self.selectedIndex]
+end
+
+function UILib.Dropdown:getSelectedIndex()
+    return self.selectedIndex
+end
+
+function UILib.Dropdown:getSelectedText()
+    local option = self:getSelectedOption()
+    if option then
+        for _, child in ipairs(option.children) do
+            if child:isInstanceOf(UILib.Label) then
+                return child.text
+            end
+        end
+    end
+    return ""
+end
+
+function UILib.Dropdown:toggle()
+    if self.expanded then
+        self:collapse()
+    else
+        self:expand()
+    end
+end
+
+function UILib.Dropdown:expand()
+    if self.expanded then return end
+    
+    self.expanded = true
+    self.optionsPanel:setVisible(true)
+    self:moveToFront() 
+    
+    self.mainButton.backgroundColor = self.backgroundExpandedColor
+    
+    local totalHeight = #self.options * self.optionHeight
+    local visibleHeight = math.min(totalHeight, self.maxVisibleOptions * self.optionHeight)
+    self.optionsPanel:setSize(self.w, visibleHeight)
+    self.optionsPanel:setRoundCorners({top_left = false, top_right = false})
+    self.mainButton:setRoundCorners({bottom_left = false, bottom_right = false})
+    self:setSize(self.w, self.h + visibleHeight)
+end
+
+function UILib.Dropdown:collapse()
+    if not self.expanded then return end
+    
+    self.expanded = false
+    self.optionsPanel:setVisible(false)
+    
+    self.mainButton.backgroundColor = self.backgroundColor
+    self.mainButton:setRoundCorners({bottom_left = true, bottom_right = true})
+    
+    self:setSize(self.w, self.h - self.optionsPanel.h)
+end
+
+function UILib.Dropdown:updateOptionsPanel()
+    local totalContentHeight = #self.options * self.optionHeight
+    self.optionsPanel.contentHeight = totalContentHeight
+    self.optionsPanel.maxScrollY = math.max(0, totalContentHeight - self.optionsPanel.h)
+    
+    local newSize = math.clamp(self.optionHeight * #self.options, self.optionHeight, self.optionHeight*self.maxVisibleOptions)
+    self.optionsPanel:setSize(self.w, self.optionHeight*self.maxVisibleOptions)
+    
+    local optionWidth = self.w - (self.optionsPanel.maxScrollY > 0 and self.optionsPanel.scrollbarSize or 0)
+    for i, option in ipairs(self.options) do
+        option:setSize(optionWidth, self.optionHeight)
+        option:setPos(0, (i - 1) * self.optionHeight)
+    end
+    
+    self.optionsPanel:updateScrollBounds()
+end
+
+function UILib.Dropdown:clearOptions()
+    for i = #self.options, 1, -1 do
+        local option = self.options[i]
+        if option and option.destroy then
+            option:destroy()
+        end
+    end
+    self.options = {}
+    self.selectedIndex = 1
+    self.mainButton:setText("")
+    self:updateOptionsPanel()
+end
+
+function UILib.Dropdown:setMaxVisibleOptions(max)
+    self.maxVisibleOptions = max
+    if self.expanded then
+        self:collapse()
+        self:expand() 
+    end
+end
+
+function UILib.Dropdown:setOptionHeight(height)
+    self.optionHeight = height
+    
+
+    for i, option in ipairs(self.options) do
+        option:setPos(0, (i - 1) * height)
+        option:setSize(self.w - (self.optionsPanel.maxScrollY > 0 and self.optionsPanel.scrollbarSize or 0), height)
+    end
+    
+    self:updateOptionsPanel()
+    
+    if self.expanded then
+        self:collapse()
+        self:expand() 
+    end
+end
+
+function UILib.Dropdown:onClick(x, y, button)
+    if self.expanded and not UILib.isPointInComponent(x, y, self) then
+        self:collapse()
+        return true 
+    end
+    return false
+end
+
+function UILib.Dropdown:onMouseScroll(delta)
+
+    if self.expanded and self.optionsPanel:isPointInComponent(UILib.getMousePosition()) then
+        self.optionsPanel:scrollBy(0, -delta * self.optionsPanel.scrollSpeed)
+        return true
+    end
+    return false
+end
+
+function UILib.Dropdown:onMouseEnter(x, y)
+    if not self.visible then return end
+end
+
+function UILib.Dropdown:onMouseLeave(x, y)
+    if not self.visible then return end
+end
+
+function UILib.Dropdown:onMouseMoved(x, y)
+    if not self.visible then return end
+end
+
+function UILib.Dropdown:_draw()
+
+end
+
+function UILib.Dropdown:destroy()
+    self:clearOptions()
+    
+    if self.mainButton and self.mainButton.destroy then
+        self.mainButton:destroy()
+    end
+    
+    if self.optionsPanel and self.optionsPanel.destroy then
+        self.optionsPanel:destroy()
+    end
+    
+    UILib.Component.destroy(self)
+end
+
+function UILib.Dropdown:onOptionSelected(index, option)
+end
+
+function UILib.Dropdown:setOptions(optionsTable)
+    self:clearOptions()
+    
+    for i, text in ipairs(optionsTable) do
+        self:addTextOption(text)
+    end
+    
+    if #optionsTable > 0 then
+        self:selectOption(1)
+    end
+end
+
+function UILib.Dropdown:setVisible(state)
+    UILib.Component.setVisible(self, state)
+    
+    if self.mainButton then
+        self.mainButton:setVisible(state)
+    end
+    
+    if self.optionsPanel then
+        self.optionsPanel:setVisible(state and self.expanded)
+    end
+end

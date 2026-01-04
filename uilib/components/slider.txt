@@ -1,0 +1,418 @@
+--@name UILib Slider
+--@author soldnotsold
+--@client
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+
+
+local table = table
+local math = math
+local render = render
+
+--[[
+  ___ _ _    _         
+ / __| (_)__| |___ _ _ 
+ \__ \ | / _` / -_) '_|
+ |___/_|_\__,_\___|_|  
+--]]
+
+---@class UILib.Slider: UILib.Component
+UILib.Slider = class("Slider", UILib.Component)
+
+function UILib.Slider:initialize(x, y, w, h, screen)
+    UILib.Component.initialize(self, x, y, w, h, true, screen)
+    
+    self.value = 0.5 
+    self.minValue = 0.0
+    self.maxValue = 1.0
+    self.step = 0.0  -- 0 continuous, otherwise snap to steps
+    self.orientation = "horizontal"
+    
+    self.trackHeight = 4
+    self.thumbSize = 16
+    self.thumbRadius = 8  
+    
+    -- Colors
+    self.trackColor = UILib.Skin.Slider.trackColor
+    self.trackProgressColor = UILib.Skin.Slider.trackProgressColor
+    self.thumbColor = UILib.Skin.Slider.thumbColor
+    self.thumbHoverColor = UILib.Skin.Slider.thumbHoverColor
+    self.thumbActiveColor = UILib.Skin.Slider.thumbActiveColor
+    self.borderColor = UILib.Skin.Slider.borderColor
+    self.valueTextBackgroundColor = UILib.Skin.Slider.valueTextBackgroundColor
+    self.valueTextBackgroundCornerRadius = UILib.Skin.Slider.valueTextBackgroundCornerRadius
+
+    self.showTrack = true
+    self.showProgress = true
+    self.thumbRounded = true
+    self.showValue = false
+    self.valueTextColor = UILib.Skin.Slider.textColor
+    self.valueFormat = "percentage"  -- "percentage", "fraction", "value", "custom"
+    
+    self.isDragging = false
+    self.isHovered = false
+    self.dragStartValue = 0
+    self.dragStartX = 0
+    self.dragStartY = 0
+    
+end
+
+function UILib.Slider:onValueChanged(value, oldValue) end
+
+function UILib.Slider:onSliderDragStart(value) end
+function UILib.Slider:onSliderDragEnd(value, oldValue) end
+
+function UILib.Slider:setValue(value, triggerCallback)
+    local oldValue = self.value
+    self.value = math.max(self.minValue, math.min(self.maxValue, value))
+    
+    if self.step > 0 then
+        self.value = math.floor((self.value - self.minValue) / self.step + 0.5) * self.step + self.minValue
+    end
+    
+    if triggerCallback ~= false and self.value ~= oldValue then
+        self:onValueChanged(self.value, oldValue)
+    end
+end
+
+function UILib.Slider:setRange(min, max)
+    self.minValue = min
+    self.maxValue = max
+    self:setValue(self.value) 
+end
+
+function UILib.Slider:setStep(step)
+    self.step = step
+end
+
+function UILib.Slider:getValue()
+    return self.value
+end
+
+function UILib.Slider:getNormalizedValue()
+    return (self.value - self.minValue) / (self.maxValue - self.minValue)
+end
+
+function UILib.Slider:setNormalizedValue(normalized, triggerCallback)
+    self:setValue(self.minValue + normalized * (self.maxValue - self.minValue), triggerCallback)
+end
+
+function UILib.Slider:setOrientation(orientation)
+    self.orientation = orientation or "horizontal"
+end
+
+function UILib.Slider:setTrackHeight(height)
+    self.trackHeight = height
+end
+
+function UILib.Slider:setThumbSize(size)
+    self.thumbSize = size
+    self.thumbRadius = size / 2
+end
+
+function UILib.Slider:setThumbRounded(rounded)
+    self.thumbRounded = rounded
+end
+
+function UILib.Slider:setColors(track, progress, thumb)
+    self.trackColor = track or self.trackColor
+    self.trackProgressColor = progress or self.trackProgressColor
+    self.thumbColor = thumb or self.thumbColor
+end
+
+function UILib.Slider:setShowValue(show)
+    self.showValue = show
+end
+
+function UILib.Slider:setValueFormat(format)
+    self.valueFormat = format
+end
+
+function UILib.Slider:_draw()
+    local normalizedValue = self:getNormalizedValue()
+    
+    if self.showTrack then
+        self:drawTrack()
+    end
+    
+    if self.showProgress then
+        self:drawProgress(normalizedValue)
+    end
+    
+    self:drawThumb(normalizedValue)
+    
+    if self.showValue then
+        self:drawValueText(normalizedValue)
+    end
+end
+
+function UILib.Slider:drawTrack()
+    local trackRect = self:getTrackRect()
+    
+    render.setColor(self.trackColor)
+    if self.thumbRounded then
+        render.drawRoundedBox(self.trackHeight / 2, trackRect.x, trackRect.y, trackRect.w, trackRect.h)
+    else
+        render.drawRect(trackRect.x, trackRect.y, trackRect.w, trackRect.h)
+    end
+    
+    render.setColor(self.borderColor)
+    if self.thumbRounded then
+        --render.drawRoundedBoxOutline(self.trackHeight / 2, trackRect.x, trackRect.y, trackRect.w, trackRect.h, 1)
+        render.drawRectOutline(trackRect.x, trackRect.y, trackRect.w, trackRect.h, 1)
+    else
+        render.drawRectOutline(trackRect.x, trackRect.y, trackRect.w, trackRect.h, 1)
+    end
+end
+
+function UILib.Slider:drawProgress(normalizedValue)
+    if normalizedValue <= 0 then return end
+    
+    local progressRect = self:getProgressRect(normalizedValue)
+    
+    render.setColor(self.trackProgressColor)
+    if self.thumbRounded then
+        render.drawRoundedBox(self.trackHeight / 2, progressRect.x, progressRect.y, progressRect.w, progressRect.h)
+    else
+        render.drawRect(progressRect.x, progressRect.y, progressRect.w, progressRect.h)
+    end
+end
+
+function UILib.Slider:drawThumb(normalizedValue)
+    local thumbPos = self:getThumbPosition(normalizedValue)
+    local thumbColor = self.thumbColor
+    
+    if self.isDragging then
+        thumbColor = self.thumbActiveColor
+    elseif self.isHovered then
+        thumbColor = self.thumbHoverColor
+    end
+    
+    render.setColor(thumbColor)
+    
+    if self.thumbRounded then
+
+        
+        render.setColor(self.borderColor)
+        render.drawCircle(thumbPos.x, thumbPos.y, self.thumbRadius)
+        render.setColor(thumbColor)
+        render.drawFilledCircle(thumbPos.x, thumbPos.y, self.thumbRadius)
+    else
+        render.drawRect(thumbPos.x - self.thumbSize / 2, thumbPos.y - self.thumbSize / 2, self.thumbSize, self.thumbSize)
+        
+        render.setColor(self.borderColor)
+        render.drawRectOutline(thumbPos.x - self.thumbSize / 2, thumbPos.y - self.thumbSize / 2, self.thumbSize, self.thumbSize, 1)
+    end
+end
+
+function UILib.Slider:drawValueText(normalizedValue)
+    local text = self:getValueText(normalizedValue)
+    if not text or text == "" then return end
+    
+    local textWidth = render.getTextSize(text)
+    local textHeight = 16
+    
+    local textX, textY
+    
+    if self.orientation == "horizontal" then
+        local thumbPos = self:getThumbPosition(normalizedValue)
+        textX = thumbPos.x - textWidth / 2
+        textY = self.y - textHeight - 5
+    else
+        local thumbPos = self:getThumbPosition(normalizedValue)
+        textX = self.x + self.w + 5
+        textY = thumbPos.y - textHeight / 2
+    end
+    
+    if self.constrainToScreen then
+        --textX = math.max(0, math.min(textX, self.screen.w - textWidth))
+        --textY = math.max(0, math.min(textY, self.screen.h - textHeight))
+    end
+    if self.valueTextBackgroundColor.a then
+        render.setColor(self.valueTextBackgroundColor)        
+        if self.valueTextBackgroundCornerRadius then
+            render.drawRoundedBox(self.valueTextBackgroundCornerRadius, textX - 2, textY - 1, textWidth + 4, textHeight + 2)
+        else    
+            render.drawRect(textX - 2, textY - 1, textWidth + 4, textHeight + 2)
+        end
+    end
+    render.setColor(self.textColor)
+    render.drawSimpleText(textX, textY, text)
+    --render.drawText(textX, textY, text)
+end
+
+function UILib.Slider:getTrackRect()
+    if self.orientation == "horizontal" then
+        return {
+            x = self.x,
+            y = self.y + (self.h - self.trackHeight) / 2,
+            w = self.w,
+            h = self.trackHeight
+        }
+    else
+        return {
+            x = self.x + (self.w - self.trackHeight) / 2,
+            y = self.y,
+            w = self.trackHeight,
+            h = self.h
+        }
+    end
+end
+
+function UILib.Slider:getProgressRect(normalizedValue)
+    local trackRect = self:getTrackRect()
+    
+    if self.orientation == "horizontal" then
+        return {
+            x = trackRect.x,
+            y = trackRect.y,
+            w = trackRect.w * normalizedValue,
+            h = trackRect.h
+        }
+    else
+        return {
+            x = trackRect.x,
+            y = trackRect.y + trackRect.h * (1 - normalizedValue),
+            w = trackRect.w,
+            h = trackRect.h * normalizedValue
+        }
+    end
+end
+
+function UILib.Slider:getThumbPosition(normalizedValue)
+    local trackRect = self:getTrackRect()
+    
+    if self.orientation == "horizontal" then
+        return {
+            x = trackRect.x + trackRect.w * normalizedValue,
+            y = trackRect.y + trackRect.h / 2
+        }
+    else
+        return {
+            x = trackRect.x + trackRect.w / 2,
+            y = trackRect.y + trackRect.h * (1 - normalizedValue)
+        }
+    end
+end
+
+function UILib.Slider:getValueText(normalizedValue)
+    if self.valueFormat == "percentage" then
+        return string.format("%d%%", math.floor(normalizedValue * 100))
+    elseif self.valueFormat == "fraction" then
+        return string.format("%.1f/%.1f", self.value, self.maxValue)
+    elseif self.valueFormat == "value" then
+        return string.format("%.2f", self.value)
+    end
+    return ""
+end
+
+function UILib.Slider:onMousePressed(x, y, button)
+    if button ~= MOUSE.MOUSE2 then return false end 
+    
+    local thumbPos = self:getThumbPosition(self:getNormalizedValue())
+    local thumbRect = {
+        x = thumbPos.x - self.thumbSize / 2,
+        y = thumbPos.y - self.thumbSize / 2,
+        w = self.thumbSize,
+        h = self.thumbSize
+    }
+    
+    local clickedOnThumb = x >= thumbRect.x and x <= thumbRect.x + thumbRect.w and
+                            y >= thumbRect.y and y <= thumbRect.y + thumbRect.h
+    
+    if clickedOnThumb or self:isPointOnTrack(x, y) then
+        self.isDragging = true
+        self.dragStartValue = self.value
+        self.dragStartX = x
+        self.dragStartY = y
+        
+        if not clickedOnThumb then
+            self:setValueFromMousePosition(x, y, true)
+        end
+        
+        self:onSliderDragStart(self.value)
+        
+        return true
+    end
+    
+    return false
+end
+
+function UILib.Slider:onMouseReleased(x, y, button)
+    if button ~= 1 then return false end
+    
+    if self.isDragging then
+        self.isDragging = false
+        
+        self:onSliderDragEnd(self.value, self.dragStartValue)
+        
+        return true
+    end
+    
+    return false
+end
+
+function UILib.Slider:onMouseMoved(x, y)
+    local thumbPos = self:getThumbPosition(self:getNormalizedValue())
+    local thumbRect = {
+        x = thumbPos.x - self.thumbSize / 2,
+        y = thumbPos.y - self.thumbSize / 2,
+        w = self.thumbSize,
+        h = self.thumbSize
+    }
+    
+    self.isHovered = x >= thumbRect.x and x <= thumbRect.x + thumbRect.w and y >= thumbRect.y and y <= thumbRect.y + thumbRect.h
+    
+    if self.isDragging then
+        self:setValueFromMousePosition(x, y, true)
+        return true
+    end
+    
+    return false
+end
+
+function UILib.Slider:isPointOnTrack(x, y)
+    local trackRect = self:getTrackRect()
+    
+    local expandedTrack = {
+        x = trackRect.x - 5,
+        y = trackRect.y - 5,
+        w = trackRect.w + 10,
+        h = trackRect.h + 10
+    }
+    
+    return x >= expandedTrack.x and x <= expandedTrack.x + expandedTrack.w and y >= expandedTrack.y and y <= expandedTrack.y + expandedTrack.h
+end
+
+function UILib.Slider:setValueFromMousePosition(x, y, triggerCallback)
+    local trackRect = self:getTrackRect()
+    local normalizedValue
+    
+    if self.orientation == "horizontal" then
+        normalizedValue = (x - trackRect.x) / trackRect.w
+    else
+        normalizedValue = 1 - (y - trackRect.y) / trackRect.h
+    end
+    
+    normalizedValue = math.max(0, math.min(1, normalizedValue))
+    self:setNormalizedValue(normalizedValue, triggerCallback)
+end
+
+function UILib.Slider:onMouseScroll(delta)
+    if not self.isHovered then return false end
+    
+    local step = self.step > 0 and self.step or (self.maxValue - self.minValue) * 0.01
+    self:setValue(self.value + delta * step, true)
+    return true
+end
+
+function UILib.Slider:reset()
+    self:setValue(self.minValue, false)
+end
+
+function UILib.Slider:setToMax()
+    self:setValue(self.maxValue, false)
+end

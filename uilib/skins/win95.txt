@@ -1,0 +1,230 @@
+--@name UILib Win95-ish Skin
+--@author soldnotsold
+--@client
+
+local Win95Skin = {}
+
+Win95Skin.Component = {
+    textColor = Color(0, 0, 0),
+    backgroundColor = Color(192, 192, 192),
+    borderColor = Color(128, 128, 128),
+    borderWidth = 1,
+    cornerRadius = 0,
+    font = UILib.createFont("DejaVu Sans Mono", 12, 400, false, false, false, false, 0, false, 0),
+    padding = 6,
+    margin = 4
+}
+
+Win95Skin.Label = {
+    textColor = Color(0, 0, 0),
+    font = UILib.createFont("DejaVu Sans Mono", 12, 400, false, false, false, false, 0, false, 0),
+}
+
+Win95Skin.Button = {
+    textColor = Color(0, 0, 0),
+    backgroundColor = Color(192, 192, 192),
+    backgroundHoverColor = Color(192, 192, 192),
+    backgroundPressedColor = Color(128, 128, 128),
+    borderColor = Color(128, 128, 128),
+    borderPressedColor = Color(0, 0, 0),
+    borderWidth = 2,
+    cornerRadius = 0,
+    font = UILib.createFont("DejaVu Sans Mono", 12, 400, false, false, false, false, 0, false, 0),
+    padding = 8,
+    margin = Win95Skin.Component.margin
+}
+
+Win95Skin.Panel = {
+    textColor = Color(0, 0, 0),
+    backgroundColor = Color(192, 192, 192),
+    borderColor = Color(128, 128, 128),
+    borderWidth = 1,
+    cornerRadius = 0,
+    font = Win95Skin.Component.font,
+    padding = Win95Skin.Component.padding,
+    margin = Win95Skin.Component.margin,
+    scrollbarColor = Color(128, 128, 128),
+    scrollbarHoverColor = Color(128, 128, 128),
+    scrollbarActiveColor = Color(64, 64, 64),
+    scrollbarCornerRadius = 0,
+    panelTopHeight = 24,
+    panelTopColor = Color(0, 0, 128),
+    panelTopTextColor = Color(255, 255, 255),
+    panelTopFont = UILib.createFont("DejaVu Sans Mono", 12, 700, false, false, false, false, 0, false, 0),
+    panelTopPad = 6
+}
+
+Win95Skin.Window = {
+    textColor = Win95Skin.Panel.textColor,
+    backgroundColor = Color(192, 192, 192),
+    borderColor = Color(0, 0, 0),
+    borderWidth = 2,
+    cornerRadius = 0,
+    font = Win95Skin.Panel.font,
+    padding = Win95Skin.Panel.padding,
+    margin = Win95Skin.Panel.margin,
+    
+    panelTopHeight = 24,
+    panelTopColor = Color(0, 0, 128),
+    panelTopTextColor = Color(255, 255, 255),
+    panelTopFont = Win95Skin.Panel.panelTopFont,
+    panelTopPad = 6,
+    
+    closeButtonColor = Color(192, 192, 192),
+    closeButtonHoverColor = Color(192, 192, 192),
+    closeButtonTextColor = Color(0, 0, 0)
+}
+
+Win95Skin.ProgressBar = {
+    textColor = Color(0, 0, 0),
+    backgroundColor = Color(192, 192, 192),
+    progressColor = Color(0, 0, 128),
+    borderColor = Color(128, 128, 128),
+    borderWidth = 1,
+    cornerRadius = 0,
+    font = UILib.createFont("DejaVu Sans Mono", 10, 400, false, false, false, false, 0, false, 0),
+    padding = Win95Skin.Component.padding,
+    margin = Win95Skin.Component.margin,
+    height = 18,
+}
+
+Win95Skin.SegmentedProgressBar = {
+    textColor = Win95Skin.ProgressBar.textColor,
+    backgroundColor = Win95Skin.ProgressBar.backgroundColor,
+    progressColor = Win95Skin.ProgressBar.progressColor,
+    borderColor = Win95Skin.ProgressBar.borderColor,
+    borderWidth = Win95Skin.ProgressBar.borderWidth,
+    cornerRadius = Win95Skin.ProgressBar.cornerRadius,
+    font = Win95Skin.ProgressBar.font,
+    padding = Win95Skin.ProgressBar.padding,
+    margin = Win95Skin.ProgressBar.margin,
+    height = Win95Skin.ProgressBar.height,
+    
+    segmentColor = Win95Skin.ProgressBar.progressColor,
+    segmentBackgroundColor = Color(192, 192, 192),
+    segmentBorderColor = Color(128, 128, 128),
+    segmentGap = 1
+}
+
+Win95Skin.Slider = {
+    trackColor = Color(192, 192, 192), 
+    trackProgressColor = Color(0, 0, 128),
+    thumbColor = Color(192, 192, 192),
+    thumbHoverColor = Color(192, 192, 192), 
+    thumbActiveColor = Color(128, 128, 128),
+    borderColor = Color(128, 128, 128),
+    valueTextBackgroundColor = Color(192, 192, 192), 
+    textColor = Color(0, 0, 0)
+}
+
+Win95Skin.TerminalLine = {
+    textColor = Color(0, 0, 0),
+    backgroundColor = Color(192, 192, 192),
+    font = UILib.createFont("Courier New", 12, 400, false, false, false, false, 0, false, 0),
+    promptColor = Color(0, 0, 128),
+    selectionColor = Color(0, 0, 128, 100),
+    lineHeight = 16,
+    charWidth = 8
+}
+
+Win95Skin.Terminal = {
+    textColor = Win95Skin.TerminalLine.textColor,
+    backgroundColor = Color(192, 192, 192),
+    promptColor = Win95Skin.TerminalLine.promptColor,
+    inputColor = Color(0, 0, 0),
+    cursorColor = Color(0, 0, 0),
+    selectionColor = Win95Skin.TerminalLine.selectionColor,
+    terminalBorderColor = Color(128, 128, 128),
+    terminalLineHeight = Win95Skin.TerminalLine.lineHeight,
+}
+
+Win95Skin.Dropdown = {
+    backgroundExpandedColor = Color(192, 192, 192),
+    optionBackgroundColor = Color(192, 192, 192),
+    optionHoverColor = Color(0, 0, 128),
+    optionTextColor = Color(0, 0, 0),
+    panelBackgroundColor = Color(192, 192, 192),
+    optionCornerRadius = 0,
+}
+
+Win95Skin.PropertySheet = {
+    headerHeight = 24,
+    headerBackgroundColor = Color(0, 0, 128),
+    headerTextColor = Color(255, 255, 255),
+    headerFont = UILib.createFont("DejaVu Sans Mono", 12, 700, false, false, false, false, 0, false, 0),
+    tabHeight = 20,
+    tabBackgroundColor = Color(192, 192, 192),
+    tabHoverColor = Color(192, 192, 192),
+    tabActiveColor = Color(192, 192, 192),
+    tabTextColor = Color(0, 0, 0),
+    tabActiveTextColor = Color(0, 0, 0),
+    tabCornerRadius = 0,
+    tabPadding = 8,
+    tabSpacing = 0,
+    tabBorderWidth = 1,
+    contentBackgroundColor = Color(192, 192, 192),
+    borderColor = Color(128, 128, 128),
+    borderWidth = 1,
+    cornerRadius = 0
+}
+
+Win95Skin.Checkbox = {
+    size = 16,
+    backgroundColor = Color(192, 192, 192),
+    backgroundHoverColor = Color(192, 192, 192),
+    borderColor = Color(128, 128, 128),
+    borderHoverColor = Color(128, 128, 128),
+    checkColor = Color(0, 0, 0),
+    checkHoverColor = Color(0, 0, 0),
+    borderWidth = 1,
+    cornerRadius = 0,
+    textColor = Color(0, 0, 0),
+    font = UILib.createFont("DejaVu Sans Mono", 12, 400, false, false, false, false, 0, false, 0),
+    textPadding = 6
+}
+
+Win95Skin.Icon = {
+    size = 20,
+}
+
+Win95Skin.RadioButton = {
+    size = 16,
+    backgroundColor = Color(192, 192, 192),     
+    backgroundHoverColor = Color(192, 192, 192),
+    borderColor = Color(128, 128, 128),         
+    borderHoverColor = Color(128, 128, 128),  
+    dotColor = Color(0, 0, 0),                 
+    dotHoverColor = Color(0, 0, 0),        
+    borderWidth = 1,
+    textColor = Color(0, 0, 0),               
+    font = UILib.createFont("DejaVu Sans Mono", 12, 400, false, false, false, false, 0, false, 0),
+    textPadding = 6
+}
+
+Win95Skin.Marquee = {
+    backgroundColor = Color(192, 192, 192),
+    speed = 50,
+    direction = "left",
+    gap = 30,
+    fadeEdges = false,
+    fadeWidth = 30,
+    smoothScrolling = true
+}
+
+Win95Skin.TextMarquee = {
+    textColor = Color(0, 0, 0),
+    font = UILib.createFont("DejaVu Sans Mono", 14, 700, false, false, false, false, 0, false, 0),
+    spacing = 0
+}
+
+Win95Skin.Colors = {
+    DesktopBlue = Color(0, 0, 128),            
+    WinGray = Color(192, 192, 192),        
+    DarkGray = Color(128, 128, 128),  
+    Black = Color(0, 0, 0),             
+    White = Color(255, 255, 255),          
+    Highlight = Color(255, 255, 255),       
+    Shadow = Color(64, 64, 64)          
+}
+
+return Win95Skin

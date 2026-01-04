@@ -1,0 +1,1594 @@
+--@name UILib Terminal
+--@author soldnotsold
+--@client
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+local table = table
+local math = math
+local render = render
+local IS_LINUX = os.isLinux()
+
+--[[
+ ______              _           __
+/_  __/__ ______ _  (_)__  ___ _/ /
+ / / / -_) __/  ' \/ / _ \/ _ `/ / 
+/_/  \__/_/ /_/_/_/_/_//_/\_,_/_/  
+
+--]]
+
+
+
+---@class UILib.Terminal: UILib.Component
+UILib.Terminal = class("Terminal", UILib.Component)
+
+function UILib.Terminal:initialize(x, y, cols, rows, screen)
+    self.terminalFont = UILib.Skin.TerminalLine.font
+    
+    render.setFont(self.terminalFont)
+    local charWidth, charHeight = render.getTextSize("M")
+    
+    self.cols = cols or 80
+    self.rows = rows or 24
+    self.cellWidth = charWidth
+    self.cellHeight = charHeight
+    if (self.cols * charWidth) > 1024 then
+        throw("Can't fit "..self.cols.." columns into rendertarget ("..self.cols * charWidth..">1024). Reduce column count or use smaller font") 
+    end
+    if (self.rows * charHeight) > 1024 then
+        throw("Can't fit "..self.rows.." rows into rendertarget ("..self.rows * charHeight..">1024). Recude row count or use smaller font") 
+    end
+    
+    local width = self.cols * self.cellWidth
+    local height = self.rows * self.cellHeight
+    
+    UILib.Component.initialize(self, x, y, width, height, true, screen)
+    self:updateVisibleCellSize()
+        
+    self.cursorX = 1
+    self.cursorY = 1
+    self.cursorVisible = true
+    self.cursorBlinkRate = 0.5
+    self.cursorLastBlinkTime = timer.realtime()
+    
+    self.currentFgColor = UILib.Skin.Terminal.textColor or Color(200, 200, 200)
+    self.currentBgColor = UILib.Skin.Terminal.backgroundColor or Color(120, 120, 120)
+    self.defaultFgColor = self.currentFgColor
+    self.defaultBgColor = self.currentBgColor
+    self.cursorColor = UILib.Skin.Terminal.cursorColor or Color(255, 255, 255, 128)
+    
+    self.ansiColors = {
+        [0] = Color(0, 0, 0),       -- black
+        [1] = Color(170, 0, 0),     -- red
+        [2] = Color(0, 170, 0),     -- green
+        [3] = Color(170, 85, 0),    -- yellow/brown
+        [4] = Color(0, 0, 170),     -- blue
+        [5] = Color(170, 0, 170),   -- magenta
+        [6] = Color(0, 170, 170),   -- cyan
+        [7] = Color(170, 170, 170), -- white (light gray)
+        [8] = Color(85, 85, 85),    -- bright black (dark gray)
+        [9] = Color(255, 85, 85),   -- bright red
+        [10] = Color(85, 255, 85),  -- bright green
+        [11] = Color(255, 255, 85), -- bright yellow
+        [12] = Color(85, 85, 255),  -- bright blue
+        [13] = Color(255, 85, 255), -- bright magenta
+        [14] = Color(85, 255, 255), -- bright cyan
+        [15] = Color(255, 255, 255),-- bright white
+    }
+    self.ansiColors256 = nil
+    self.bold = false
+    self.italic = false
+    self.underline = false
+    self.blink = false
+    self.inverse = false
+    self.hidden = false
+    
+    self.escapeSequenceBuffer = nil
+    self.savedCursorX = nil
+    self.savedCursorY = nil
+    
+    self.viewportTop = 1
+    self.totalRows = self.rows
+    self.maxTotalRows = 1000 
+    
+    self.buffer = {}
+    self.cells = {}
+        
+    self:initializeCells()
+    self.rtExtraWidth = 1024 - self.w
+    
+    self.renderTarget = "UILib_terminal_rt_" .. tostring(self.id)
+    render.createRenderTarget(self.renderTarget)
+    self.mat = material.create("UnlitGeneric")
+    self.mat:setTextureRenderTarget("$basetexture", self.renderTarget)
+    hook.add("RenderOffscreen", self.renderTarget.."_init", function()
+        render.selectRenderTarget(self.renderTarget)
+        render.clear(Color(0, 0, 0, 0))
+        hook.remove("RenderOffscreen", self.renderTarget.."_init")
+        return
+    end)
+    
+    self.renderTargetDirty = true
+    self.dirtyCells = {}
+    self.lastFullRedraw = timer.realtime()
+    self.fullRedrawInterval = 10
+    
+    self.inputBuffer = ""
+    self.inputPos = 1
+    self.prompt = "> "
+    self.commandHistory = {}
+    self.historyIndex = 0
+    
+    self.commands = {}
+    self:registerDefaultCommands()
+    self.selectionStart = nil
+    self.selectionEnd = nil
+    self.selectionColor = UILib.Skin.Terminal.selectionColor or Color(50, 100, 200, 100)
+    self.inputMode = true  
+    self.currentInputLine = "" 
+    
+    self:clear()
+    self.focusable = true
+end
+
+function UILib.Terminal:initializeCells()
+    for y = 1, self.maxTotalRows do
+        self.buffer[y] = self.buffer[y] or {}
+        for x = 1, self.cols do
+            if self.buffer[y][x] then continue end            
+            self.buffer[y][x] = {
+                char = " ",
+                fgColor = self.defaultFgColor,
+                bgColor = self.defaultBgColor,
+                bold = false,
+                italic = false,
+                underline = false
+            }
+        end
+    end
+
+    for y = 1, self.rows do
+        self.cells[y] = self.cells[y] or {}
+        for x = 1, self.cols do
+            if self.cells[y][x] then continue end
+            self.cells[y][x] = {
+                char = " ",
+                fgColor = self.defaultFgColor,
+                bgColor = self.defaultBgColor,
+                bold = false,
+                italic = false,
+                underline = false
+            }
+        end
+    end
+end
+
+function UILib.Terminal:updateVisibleCellSize()
+    self.rtExtraWidth = 1024 - (self.cols * self.cellWidth)
+    local scale = (self.w + self.rtExtraWidth) / 1024
+    self.visibleCellWidth = self.cellWidth * scale
+    self.visibleCellHeight = self.cellHeight * scale
+end
+
+function UILib.Terminal:setTerminalSize(cols, rows)
+    self.cols = cols
+    self.rows = rows
+    self:updateVisibleCellSize()    
+end
+
+function UILib.Terminal:setSize(w,h)
+    UILib.Component.setSize(self, w, h)
+    self:updateVisibleCellSize()    
+end
+
+function UILib.Terminal:refreshVisibleCells()
+    for y = 1, self.rows do
+        local bufferY = self.viewportTop + y - 1
+        if bufferY >= 1 and bufferY <= self.totalRows and self.buffer[bufferY] then
+            for x = 1, self.cols do
+                local bufferCell = self.buffer[bufferY][x]
+                if bufferCell then
+                    self.cells[y][x].char = bufferCell.char
+                    self.cells[y][x].fgColor = bufferCell.fgColor
+                    self.cells[y][x].bgColor = bufferCell.bgColor
+                    self.cells[y][x].bold = bufferCell.bold or false
+                    self.cells[y][x].italic = bufferCell.italic or false
+                    self.cells[y][x].underline = bufferCell.underline or false
+                end
+            end
+        else
+            for x = 1, self.cols do
+                self.cells[y][x].char = " "
+                self.cells[y][x].fgColor = self.defaultFgColor
+                self.cells[y][x].bgColor = self.defaultBgColor
+                self.cells[y][x].bold = false
+                self.cells[y][x].italic = false
+                self.cells[y][x].underline = false
+            end
+        end
+    end
+    self.renderTargetDirty = true
+    self:markAllCellsDirty()
+end
+
+function UILib.Terminal:setInputMode(state)
+    self.inputMode = state
+end
+
+function UILib.Terminal:registerDefaultCommands()
+    self:registerCommand("clear", "Clear terminal", function(args)
+        self:clear()
+    end)
+    
+    self:registerCommand("help", "Show help", function(args)
+        self:printLine("Available commands:")
+        for cmd, info in pairs(self.commands) do
+            self:printLine(string.format("  %-15s - %s", cmd, info.description))
+        end
+    end)
+    
+    self:registerCommand("echo", "Echo text", function(args)
+        self:printLine(table.concat(args, " "))
+    end)
+    
+    self:registerCommand("testcolors", "Test colors", function(args)
+        self:testColors()
+    end)
+    self:registerCommand("testrgb", "Test RGB colors", function(args)
+        self:testRGBColors()
+    end)
+end
+
+function UILib.Terminal:registerCommand(name, description, callback)
+    self.commands[name] = {
+        description = description,
+        callback = callback
+    }
+end
+
+function UILib.Terminal:clear()
+    for y = 1, self.maxTotalRows do
+        if not self.buffer[y] then
+            self.buffer[y] = {}
+        end
+        for x = 1, self.cols do
+            self.buffer[y][x] = {
+                char = " ",
+                fgColor = self.defaultFgColor,
+                bgColor = self.defaultBgColor,
+                bold = false,
+                italic = false,
+                underline = false
+            }
+        end
+    end
+    
+    self.totalRows = self.rows
+    self.viewportTop = 1
+    self.cursorX = 1
+    self.cursorY = 1
+    
+    self.escapeSequenceBuffer = nil
+    self.savedCursorX = nil
+    self.savedCursorY = nil
+    
+    self:resetColors()
+    
+    self:refreshVisibleCells()
+end
+
+function UILib.Terminal:markCellDirty(x, y)
+    if x < 1 or x > self.cols or y < 1 or y > self.rows then return end
+    self.dirtyCells[y] = self.dirtyCells[y] or {}
+    self.dirtyCells[y][x] = true
+    self.renderTargetDirty = true
+end
+
+function UILib.Terminal:markLineDirty(y)
+    if y < 1 or y > self.rows then return end
+    for x = 1, self.cols do
+        self:markCellDirty(x, y)
+    end
+end
+
+function UILib.Terminal:markAllCellsDirty()
+    self.dirtyCells = {}
+    for y = 1, self.rows do
+        self.dirtyCells[y] = {}
+        for x = 1, self.cols do
+            self.dirtyCells[y][x] = true
+        end
+    end
+end
+
+function UILib.Terminal:setCell(x, y, char, fgColor, bgColor, bold, italic, underline)
+    if x < 1 or x > self.cols or y < 1 or y > self.maxTotalRows then 
+        return 
+    end
+    
+    if y > self.totalRows then
+        self.totalRows = y
+    end
+    
+    if not self.buffer[y] then
+        self.buffer[y] = {}
+    end
+    
+    if not self.buffer[y][x] then
+        self.buffer[y][x] = {
+            char = " ",
+            fgColor = self.defaultFgColor,
+            bgColor = self.defaultBgColor,
+            bold = false,
+            italic = false,
+            underline = false
+        }
+    end
+    
+    local bufferCell = self.buffer[y][x]
+    local changed = false
+    
+    if bufferCell.char ~= char then
+        bufferCell.char = char
+        changed = true
+    end
+    
+    local fg = fgColor or self.currentFgColor
+    local bg = bgColor or self.currentBgColor
+    
+    if bufferCell.fgColor.r ~= fg.r or bufferCell.fgColor.g ~= fg.g or bufferCell.fgColor.b ~= fg.b or bufferCell.fgColor.a ~= fg.a then
+        bufferCell.fgColor = fg
+        changed = true
+    end
+    
+    if bufferCell.bgColor.r ~= bg.r or bufferCell.bgColor.g ~= bg.g or bufferCell.bgColor.b ~= bg.b or bufferCell.bgColor.a ~= bg.a then
+        bufferCell.bgColor = bg
+        changed = true
+    end
+    
+    if bold ~= nil and bufferCell.bold ~= bold then
+        bufferCell.bold = bold
+        changed = true
+    end
+    
+    if italic ~= nil and bufferCell.italic ~= italic then
+        bufferCell.italic = italic
+        changed = true
+    end
+    
+    if underline ~= nil and bufferCell.underline ~= underline then
+        bufferCell.underline = underline
+        changed = true
+    end
+    
+    local screenY = y - self.viewportTop + 1
+    if screenY >= 1 and screenY <= self.rows then
+        local screenCell = self.cells[screenY][x]
+        screenCell.char = char
+        screenCell.fgColor = fg
+        screenCell.bgColor = bg
+        if bold ~= nil then screenCell.bold = bold end
+        if italic ~= nil then screenCell.italic = italic end
+        if underline ~= nil then screenCell.underline = underline end
+        
+        if changed then
+            self:markCellDirty(x, screenY)
+        end
+    end
+end
+
+function UILib.Terminal:write(text)
+    if not text then return end
+    
+    if not self.inputMode then
+        self:writeWithAnsi(text)
+    else
+        for i = 1, #text do
+            self:writeChar(text:sub(i, i))
+        end
+    end
+end
+
+function UILib.Terminal:writeWithAnsi(text)
+    local i = 1
+    while i <= #text do
+        local char = text:sub(i, i)
+        
+        if self.escapeSequenceBuffer then
+            self.escapeSequenceBuffer = self.escapeSequenceBuffer .. char
+            
+            if self:isCompleteEscapeSequence(self.escapeSequenceBuffer) then
+                self:processAnsiEscapeSequence(self.escapeSequenceBuffer)
+                self.escapeSequenceBuffer = nil
+                i = i + 1
+            else
+                i = i + 1
+            end
+        else
+            if char == "\x1b" then
+                self.escapeSequenceBuffer = char
+                i = i + 1
+            else
+                self:writeChar(char)
+                i = i + 1
+            end
+        end
+    end
+end
+
+function UILib.Terminal:isCompleteEscapeSequence(seq)
+    if #seq >= 2 then
+        local lastChar = seq:sub(-1, -1)
+        if lastChar:match("[a-zA-Z]") then
+            return true
+        end
+    end
+    return false
+end
+
+function UILib.Terminal:processAnsiEscapeSequence(seq)
+    if seq:sub(2, 2) == "[" then
+        local paramsStr = seq:sub(3, -2)
+        local command = seq:sub(-1, -1)
+        
+        local params = {}
+        if paramsStr ~= "" then
+            for param in paramsStr:gmatch("[^;]+") do
+                table.insert(params, tonumber(param) or 0)
+            end
+        end
+        
+        if #params == 0 then
+            table.insert(params, 0) 
+        end
+        
+        self:processAnsiCommand(command, params)
+    else
+        --TODO handle other seqs
+    end
+end
+
+function UILib.Terminal:processAnsiCommand(command, params)
+    if command == "m" then 
+        local i = 1
+        while i <= #params do
+            i = self:processSgrParameter(params, i)
+        end
+    elseif command == "J" then 
+        local param = params[1] or 0
+        if param == 2 then
+            self:clear()
+            self.cursorX = 1
+            self.cursorY = 1
+        elseif param == 0 then
+            self:clearFromCursorToEnd()
+        elseif param == 1 then
+            self:clearFromBeginningToCursor()
+        end
+    elseif command == "K" then 
+        local param = params[1] or 0
+        if param == 2 then
+            self:clearLine(self.cursorY)
+        elseif param == 0 then
+            self:clearFromCursorToEndOfLine()
+        elseif param == 1 then
+            self:clearFromBeginningOfLineToCursor()
+        end
+    elseif command == "H" or command == "f" then
+        local row = params[1] or 1
+        local col = params[2] or 1
+        self.cursorY = math.max(1, row)
+        self.cursorX = math.max(1, col)
+    elseif command == "A" then  -- cursor up
+        local n = params[1] or 1
+        self.cursorY = math.max(1, self.cursorY - n)
+    elseif command == "B" then  -- cursor down
+        local n = params[1] or 1
+        self.cursorY = math.min(self.totalRows, self.cursorY + n)
+    elseif command == "C" then  -- cursor forward
+        local n = params[1] or 1
+        self.cursorX = math.min(self.cols, self.cursorX + n)
+    elseif command == "D" then  -- cursor back
+        local n = params[1] or 1
+        self.cursorX = math.max(1, self.cursorX - n)
+    elseif command == "s" then  -- save cursor position
+        self.savedCursorX = self.cursorX
+        self.savedCursorY = self.cursorY
+    elseif command == "u" then  -- restore cursor position
+        if self.savedCursorX then self.cursorX = self.savedCursorX end
+        if self.savedCursorY then self.cursorY = self.savedCursorY end
+    end
+end
+
+function UILib.Terminal:processSgrParameter(params, i)
+    local param = params[i]
+    
+    if param == 0 then  -- reset all
+        self:resetColors()
+        return i + 1
+    elseif param == 1 then  -- bold
+        self.bold = true
+        return i + 1
+    elseif param == 3 then  -- italic
+        self.italic = true
+        return i + 1
+    elseif param == 4 then  -- underline
+        self.underline = true
+        return i + 1
+    elseif param == 5 then  -- blink
+        self.blink = true
+        return i + 1
+    elseif param == 7 then  -- inverse
+        self.inverse = true
+        return i + 1
+    elseif param == 8 then  -- hidden
+        self.hidden = true
+        return i + 1
+    elseif param == 22 then  -- normal
+        self.bold = false
+        return i + 1
+    elseif param == 23 then  -- not italic
+        self.italic = false
+        return i + 1
+    elseif param == 24 then  -- not underline
+        self.underline = false
+        return i + 1
+    elseif param == 25 then  -- not blink
+        self.blink = false
+        return i + 1
+    elseif param == 27 then  -- not inverse
+        self.inverse = false
+        return i + 1
+    elseif param == 28 then  -- not hidden
+        self.hidden = false
+        return i + 1
+    elseif param >= 30 and param <= 37 then  -- set foreground color (16)
+        local colorIndex = param - 30
+        self.currentFgColor = self.ansiColors[colorIndex] or self.defaultFgColor
+        return i + 1
+    elseif param == 38 then  -- set foreground color
+        return self:processExtendedColor(params, i, "fg")
+    elseif param == 39 then  -- default foreground color
+        self.currentFgColor = self.defaultFgColor
+        return i + 1
+    elseif param >= 40 and param <= 47 then  -- set background color (16)
+        local colorIndex = param - 40
+        self.currentBgColor = self.ansiColors[colorIndex] or self.defaultBgColor
+        return i + 1
+    elseif param == 48 then  -- set background color
+        return self:processExtendedColor(params, i, "bg")
+    elseif param == 49 then  -- default background color
+        self.currentBgColor = self.defaultBgColor
+        return i + 1
+    elseif param >= 90 and param <= 97 then  -- set bright foreground color
+        local colorIndex = param - 90 + 8 
+        self.currentFgColor = self.ansiColors[colorIndex] or self.defaultFgColor
+        return i + 1
+    elseif param >= 100 and param <= 107 then  -- Set bright background color
+        local colorIndex = param - 100 + 8 
+        self.currentBgColor = self.ansiColors[colorIndex] or self.defaultBgColor
+        return i + 1
+    else
+        -- unknown parameter, skip
+        return i + 1
+    end
+end
+
+function UILib.Terminal:processExtendedColor(params, i, colorType)
+    if i + 1 > #params then
+        return i + 1
+    end
+    
+    local colorMode = params[i + 1]
+    
+    if colorMode == 5 then  -- 256-colors ESC[38;5;{index}m or ESC[48;5;{index}m
+        if i + 2 > #params then
+            return i + 1
+        end
+        
+        local colorIndex = params[i + 2]
+        local color = self:getColor256(colorIndex)
+        
+        if colorType == "fg" then
+            self.currentFgColor = color
+        else
+            self.currentBgColor = color
+        end
+        
+        return i + 3
+        
+    elseif colorMode == 2 then  -- true color ESC[38;2;{r};{g};{b}m or ESC[48;2;{r};{g};{b}m
+        if i + 4 > #params then
+            return i + 1
+        end
+        
+        local r = params[i + 2]
+        local g = params[i + 3]
+        local b = params[i + 4]
+        
+        r = math.max(0, math.min(255, r))
+        g = math.max(0, math.min(255, g))
+        b = math.max(0, math.min(255, b))
+        
+        local color = Color(r, g, b)
+        
+        if colorType == "fg" then
+            self.currentFgColor = color
+        else
+            self.currentBgColor = color
+        end
+        
+        return i + 5
+    else
+        -- unknown mode, skip
+        return i + 1
+    end
+end
+
+
+function UILib.Terminal:clearFromCursorToEnd()
+    for y = self.cursorY, self.totalRows do
+        local startX = (y == self.cursorY) and self.cursorX or 1
+        for x = startX, self.cols do
+            self:setCell(x, y, " ", self.defaultFgColor, self.defaultBgColor, false, false, false)
+        end
+    end
+end
+
+function UILib.Terminal:clearFromBeginningToCursor()
+    for y = 1, self.cursorY do
+        local endX = (y == self.cursorY) and self.cursorX or self.cols
+        for x = 1, endX do
+            self:setCell(x, y, " ", self.defaultFgColor, self.defaultBgColor, false, false, false)
+        end
+    end
+end
+
+function UILib.Terminal:clearLine(line)
+    for x = 1, self.cols do
+        self:setCell(x, line, " ", self.defaultFgColor, self.defaultBgColor, false, false, false)
+    end
+end
+
+function UILib.Terminal:clearFromCursorToEndOfLine()
+    for x = self.cursorX, self.cols do
+        self:setCell(x, self.cursorY, " ", self.defaultFgColor, self.defaultBgColor, false, false, false)
+    end
+end
+
+function UILib.Terminal:clearFromBeginningOfLineToCursor()
+    for x = 1, self.cursorX do
+        self:setCell(x, self.cursorY, " ", self.defaultFgColor, self.defaultBgColor, false, false, false)
+    end
+end
+
+function UILib.Terminal:writeChar(char)
+    if char == "\n" then
+        if not self.inputMode then
+            self:cursorNewline()
+        else
+            self:executeCommand()
+        end
+        return
+    elseif char == "\r" then
+        return  
+    elseif char == "\t" then
+        local spaces = 4 - ((self.cursorX - #self.prompt - 1) % 4)
+        for i = 1, spaces do
+            self:writeChar(" ")
+        end
+        return
+    elseif char == "\b" then
+        if self.inputMode and self.cursorX > #self.prompt + 1 then
+            self.cursorX = self.cursorX - 1
+            self:setCell(self.cursorX, self.cursorY, " ", 
+                        self.currentFgColor, self.currentBgColor,
+                        self.bold, self.italic, self.underline)
+            self.currentInputLine = self.currentInputLine:sub(1, -2)
+        elseif not self.inputMode then
+            self:cursorBackspace()
+        end
+        return
+    end
+    
+    if not self.inputMode then
+        local fg = self.currentFgColor
+        local bg = self.currentBgColor
+        if self.inverse then
+            fg, bg = bg, fg
+        end
+        
+        self:setCell(self.cursorX, self.cursorY, char, fg, bg, 
+                     self.bold, self.italic, self.underline)
+        self.cursorX = self.cursorX + 1
+        if self.cursorX > self.cols then
+            self:cursorNewline()
+        end
+        return
+    end
+    
+    if self.cursorX <= self.cols then
+        self:setCell(self.cursorX, self.cursorY, char, 
+                    self.currentFgColor, self.currentBgColor,
+                    self.bold, self.italic, self.underline)
+        self.currentInputLine = self.currentInputLine .. char
+        self.cursorX = self.cursorX + 1
+    end
+end
+
+
+function UILib.Terminal:generate256ColorPalette()
+    self.ansiColors256 = {}
+    
+    -- 0-15
+    for i = 0, 15 do
+        self.ansiColors256[i] = self.ansiColors[i] or Color(0, 0, 0)
+    end
+    
+    -- 16-231
+    for r = 0, 5 do
+        for g = 0, 5 do
+            for b = 0, 5 do
+                local index = 16 + r * 36 + g * 6 + b
+                local red = r == 0 and 0 or (r * 40 + 55)
+                local green = g == 0 and 0 or (g * 40 + 55)
+                local blue = b == 0 and 0 or (b * 40 + 55)
+                self.ansiColors256[index] = Color(red, green, blue)
+            end
+        end
+    end
+    
+    -- 232-255 grayscale
+    for i = 0, 23 do
+        local gray = i * 10 + 8
+        local index = 232 + i
+        self.ansiColors256[index] = Color(gray, gray, gray)
+    end
+end
+
+function UILib.Terminal:getColor256(index)
+    if index < 0 or index > 255 then
+        return self.defaultFgColor
+    end
+    
+    if not self.ansiColors256 then
+        self:generate256ColorPalette()
+    end
+    
+    return self.ansiColors256[index] or self.defaultFgColor
+end
+
+function UILib.Terminal:print(text)
+    self:write(text)
+end
+
+function UILib.Terminal:printLine(text)
+    self:write(text)
+    self:cursorNewline()
+end
+
+function UILib.Terminal:cursorNewline()
+    self.cursorX = 1
+    self.cursorY = self.cursorY + 1
+    
+    if self.cursorY > self.totalRows then
+        self.totalRows = self.cursorY
+        
+        if not self.buffer[self.cursorY] then
+            self.buffer[self.cursorY] = {}
+            for x = 1, self.cols do
+                self.buffer[self.cursorY][x] = {
+                    char = " ",
+                    fgColor = self.defaultFgColor,
+                    bgColor = self.defaultBgColor,
+                    bold = false,
+                    italic = false,
+                    underline = false
+                }
+            end
+        end
+    end
+    
+    if self.cursorY > self.viewportTop + self.rows - 1 then
+        self.viewportTop = self.cursorY - self.rows + 1
+        self:refreshVisibleCells()
+    end
+end
+
+function UILib.Terminal:cursorBackspace()
+    if self.cursorX > 1 then
+        self.cursorX = self.cursorX - 1
+        self:setCell(self.cursorX, self.cursorY, " ", self.defaultFgColor, self.defaultBgColor)
+    elseif self.cursorY > 1 then
+        self.cursorY = self.cursorY - 1
+        self.cursorX = self.cols
+        self:setCell(self.cursorX, self.cursorY, " ", self.defaultFgColor, self.defaultBgColor)
+    end
+end
+
+function UILib.Terminal:scrollUp()
+    if self.viewportTop > 1 then
+        self.viewportTop = self.viewportTop - 1
+        self:refreshVisibleCells()
+    end
+end
+
+function UILib.Terminal:scrollDown()
+    if self.viewportTop + self.rows - 1 < self.totalRows then
+        self.viewportTop = self.viewportTop + 1
+        self:refreshVisibleCells()
+    end
+end
+
+function UILib.Terminal:updateRenderTarget()
+    if not self.renderTargetDirty then return end
+    
+    local now = timer.realtime()
+    local needsFullRedraw = (now - self.lastFullRedraw) > self.fullRedrawInterval
+    
+    render.selectRenderTarget(self.renderTarget)
+    render.setFont(self.terminalFont)
+    
+    if needsFullRedraw then
+        render.clear(Color(0, 0, 0, 0))
+        
+        for y = 1, self.rows do
+            for x = 1, self.cols do
+                local cell = self.cells[y][x]
+                local screenX = (x - 1) * self.cellWidth
+                local screenY = (y - 1) * self.cellHeight
+                
+                if cell.bgColor.a > 0 then
+                    render.setColor(cell.bgColor)
+                    render.drawRectFast(screenX, screenY, self.cellWidth, self.cellHeight)
+                end
+                
+                if cell.char ~= " " then
+                    render.setColor(cell.fgColor)
+                    
+                    local drawX = screenX
+                    local drawY = screenY
+                    
+                    if cell.bold then
+                        render.drawSimpleText(drawX, drawY, cell.char)
+                        render.drawSimpleText(drawX + 1, drawY, cell.char)
+                    else
+                        render.drawSimpleText(drawX, drawY, cell.char)
+                    end
+                    
+                    if cell.underline then
+                        render.drawRectFast(screenX, screenY + self.cellHeight - 2, 
+                                          self.cellWidth, 1)
+                    end
+                end
+            end
+        end
+        
+        self.lastFullRedraw = now
+        self.dirtyCells = {}
+    else
+        for y, row in pairs(self.dirtyCells) do
+            for x in pairs(row) do
+                local cell = self.cells[y][x]
+                local screenX = (x - 1) * self.cellWidth
+                local screenY = (y - 1) * self.cellHeight
+                
+                render.setColor(cell.bgColor)
+                render.drawRectFast(screenX, screenY, self.cellWidth, self.cellHeight)
+                
+                if cell.char ~= " " then
+                    render.setColor(cell.fgColor)
+                    
+                    local drawX = screenX
+                    local drawY = screenY
+                    
+                    if cell.bold then
+                        render.drawSimpleText(drawX, drawY, cell.char)
+                        render.drawSimpleText(drawX + 1, drawY, cell.char)
+                    else
+                        render.drawSimpleText(drawX, drawY, cell.char)
+                    end
+                    
+                    if cell.underline then
+                        render.drawRectFast(screenX, screenY + self.cellHeight - 2, 
+                                          self.cellWidth, 1)
+                    end
+                end
+            end
+        end
+        
+        self.dirtyCells = {}
+    end
+    
+    if UILib.lastRT then
+        render.selectRenderTarget(UILib.lastRT)
+    else
+        render.selectRenderTarget()
+    end
+    self.renderTargetDirty = false
+end
+
+function UILib.Terminal:_draw()
+    self:updateRenderTarget()
+    
+    local realWidth =  self.w+self.rtExtraWidth
+    render.setColor(Color(255, 255, 255, 255))
+    render.setMaterial(self.mat)
+    if not IS_LINUX then -- broken on Linux for some reason
+        render.enableScissorRect(self.x, self.y, self.x+self.w, self.y+self.h)
+    end
+    render.drawTexturedRect(self.x, self.y, realWidth, realWidth)
+    
+    if self.cursorVisible and self.hasFocus then
+        local screenCursorY = self.cursorY - self.viewportTop + 1
+        
+        if screenCursorY >= 1 and screenCursorY <= self.rows then
+            local currentTime = timer.realtime()
+            if math.floor(currentTime / self.cursorBlinkRate) % 2 == 0 then
+                local cursorX = self.x + (self.cursorX - 1) * self.visibleCellWidth
+                local cursorY = self.y + (screenCursorY - 1) * self.visibleCellHeight
+                
+                render.setColor(self.cursorColor)
+                render.drawRectFast(cursorX, cursorY, 2, self.visibleCellHeight)
+            end
+        end
+    end
+    
+    if self.selectionStart and self.selectionEnd then
+        self:drawSelection()
+    end
+end
+
+function UILib.Terminal:drawSelection()
+    if not self.selectionStart or not self.selectionEnd then return end
+    
+    local x1, y1, x2, y2 = self:normalizeSelection()
+    
+    local screenY1 = y1 - self.viewportTop + 1
+    local screenY2 = y2 - self.viewportTop + 1
+    
+    if (screenY1 >= 1 and screenY1 <= self.rows) or (screenY2 >= 1 and screenY2 <= self.rows) or (y1 < self.viewportTop and y2 > self.viewportTop + self.rows - 1) then
+        local startY = math.max(1, screenY1)
+        local endY = math.min(self.rows, screenY2)
+        
+        render.setColor(self.selectionColor)
+        
+        for y = startY, endY do
+            local absY = self.viewportTop + y - 1
+            local lineStartX = 1
+            local lineEndX = self.cols
+            
+            if y == startY then
+                lineStartX = x1
+            end
+            if y == endY then
+                lineEndX = x2
+            end
+            
+            if lineStartX <= lineEndX then
+                local screenX = self.x + (lineStartX - 1) * self.visibleCellWidth
+                local screenY = self.y + (y - 1) * self.visibleCellHeight
+                local width = (lineEndX - lineStartX + 1) * self.visibleCellWidth
+                
+                render.drawRectFast(screenX, screenY, width, self.visibleCellHeight)
+            end
+        end
+    end
+end
+
+function UILib.Terminal:clearSelection()
+    self.selectionStart = nil
+    self.selectionEnd = nil
+    self.isSelecting = false
+end
+
+function UILib.Terminal:normalizeSelection()
+    if not self.selectionStart or not self.selectionEnd then
+        return 1, 1, 1, 1
+    end
+    
+    local x1, y1 = self.selectionStart.x, self.selectionStart.y
+    local x2, y2 = self.selectionEnd.x, self.selectionEnd.y
+    
+    if y1 < y2 or (y1 == y2 and x1 < x2) then
+        return x1, y1, x2, y2
+    else
+        return x2, y2, x1, y1
+    end
+end
+
+function UILib.Terminal:onFocusGained()
+    self.hasFocus = true
+    self.cursorLastBlinkTime = timer.realtime()
+end
+
+function UILib.Terminal:onFocusLost()
+    self.hasFocus = false
+    if not input.isControlLocked() then return end
+end
+
+function UILib.Terminal:onKeyPressed(key, keyName, ctrl, shift)
+    if not self.hasFocus then return false end
+    
+    if key == KEY.ENTER then
+        self:executeCommand()
+        return true
+    elseif key == KEY.BACKSPACE then
+        self:handleBackspace()
+        return true
+    elseif key == KEY.LEFT then
+        self:moveCursor(-1, 0)
+        return true
+    elseif key == KEY.RIGHT then
+        self:moveCursor(1, 0)
+        return true
+    elseif key == KEY.UP then
+        if ctrl then
+            self:scrollUp()
+        else
+            self:historyUp()
+        end
+        return true
+    elseif key == KEY.DOWN then
+        if ctrl then
+            self:scrollDown()
+        else
+            self:historyDown()
+        end
+        return true
+    elseif key == KEY.HOME then
+        self.cursorX = 1
+        return true
+    elseif key == KEY.END then
+        self.cursorX = self.cols
+        return true
+    elseif key == KEY.PAGEUP then
+        for i = 1, self.rows - 1 do
+            self:scrollUp()
+        end
+        return true
+    elseif key == KEY.PAGEDOWN then
+        for i = 1, self.rows - 1 do
+            self:scrollDown()
+        end
+        return true
+    elseif ctrl and key == KEY.C then
+        self:copySelection()
+        return true
+    elseif ctrl and key == KEY.V then
+        self:paste()
+        return true
+    elseif ctrl and key == KEY.A then
+        self:selectAll()
+        return true
+    end
+    
+    if shift then
+        local oldCursorX, oldCursorY = self.cursorX, self.cursorY
+            
+        if key == KEY.LEFT then
+            self:moveCursor(-1, 0)
+            if not self.selectionStart then
+                self.selectionStart = {x = oldCursorX, y = oldCursorY}
+            end
+            self.selectionEnd = {x = self.cursorX, y = self.cursorY}
+            return true
+        elseif key == KEY.RIGHT then
+            self:moveCursor(1, 0)
+            if not self.selectionStart then
+                self.selectionStart = {x = oldCursorX, y = oldCursorY}
+            end
+            self.selectionEnd = {x = self.cursorX, y = self.cursorY}
+            return true
+        elseif key == KEY.UP then
+            self:moveCursor(0, -1)
+            if not self.selectionStart then
+                self.selectionStart = {x = oldCursorX, y = oldCursorY}
+            end
+            self.selectionEnd = {x = self.cursorX, y = self.cursorY}
+            return true
+        elseif key == KEY.DOWN then
+            self:moveCursor(0, 1)
+            if not self.selectionStart then
+                self.selectionStart = {x = oldCursorX, y = oldCursorY}
+            end
+            self.selectionEnd = {x = self.cursorX, y = self.cursorY}
+            return true
+        elseif key == KEY.HOME then
+            local oldX = self.cursorX
+            self.cursorX = 1
+            if not self.selectionStart then
+                self.selectionStart = {x = oldX, y = self.cursorY}
+            end
+            self.selectionEnd = {x = self.cursorX, y = self.cursorY}
+            return true
+        elseif key == KEY.END then
+            local oldX = self.cursorX
+            self.cursorX = self.cols
+            if not self.selectionStart then
+                self.selectionStart = {x = oldX, y = self.cursorY}
+            end
+            self.selectionEnd = {x = self.cursorX, y = self.cursorY}
+            return true
+        end
+    end
+        
+    if key ~= KEY.C and key ~= KEY.V and key ~= KEY.A then
+        -- clear sel
+    end
+    
+    return false
+end
+
+function UILib.Terminal:isCellSelected(x, y)
+    if not self.selectionStart or not self.selectionEnd then
+        return false
+    end
+    
+    local x1, y1, x2, y2 = self:normalizeSelection()
+    local absY = self.viewportTop + y - 1
+    return absY >= y1 and absY <= y2 and x >= x1 and x <= x2
+end
+
+function UILib.Terminal:onTextInput(char)
+    if not self.hasFocus then return false end
+    self:writeChar(char)
+    return true
+end
+
+function UILib.Terminal:executeCommand()
+    if self.currentInputLine == "" then
+        self:cursorNewline()
+        self:print(self.prompt)
+        return
+    end
+    
+    table.insert(self.commandHistory, self.currentInputLine)
+    if #self.commandHistory > 100 then
+        table.remove(self.commandHistory, 1)
+    end
+    self.historyIndex = #self.commandHistory + 1
+    
+    local parts = {}
+    for part in self.currentInputLine:gmatch("%S+") do
+        table.insert(parts, part)
+    end
+    
+    if #parts > 0 then
+        local cmd = parts[1]:lower()
+        local args = {}
+        for i = 2, #parts do
+            table.insert(args, parts[i])
+        end
+        
+        self.inputMode = false
+        self:cursorNewline()
+        
+        if self.commands[cmd] then
+            local success, err = pcall(function()
+                self.commands[cmd].callback(args)
+            end)
+            if not success then
+                self:printLine("Error: " .. tostring(err))
+            end
+        else
+            self:printLine("Command not found: " .. cmd)
+        end
+        
+        self.inputMode = true
+    end
+    
+    self:print(self.prompt)
+    self.currentInputLine = ""
+end
+
+function UILib.Terminal:handleBackspace()
+    if self.inputMode and self.cursorX > #self.prompt + 1 then
+        self.cursorX = self.cursorX - 1
+        self:setCell(self.cursorX, self.cursorY, " ", 
+                    self.currentFgColor, self.currentBgColor,
+                    self.bold, self.italic, self.underline)
+        self.currentInputLine = self.currentInputLine:sub(1, -2)
+    end
+end
+
+function UILib.Terminal:moveCursor(dx, dy)
+    local newX = self.cursorX + dx
+    local newY = self.cursorY + dy
+    
+    newX = math.max(1, math.min(self.cols, newX))
+    
+    newY = math.max(1, newY)
+    
+    self.cursorX = newX
+    self.cursorY = newY
+    
+    if self.cursorY > self.totalRows then
+        self.totalRows = self.cursorY
+    end
+    
+    if self.cursorY < self.viewportTop then
+        self.viewportTop = self.cursorY
+        self:refreshVisibleCells()
+    elseif self.cursorY > self.viewportTop + self.rows - 1 then
+        self.viewportTop = self.cursorY - self.rows + 1
+        self:refreshVisibleCells()
+    end
+end
+
+function UILib.Terminal:historyUp()
+    if not self.inputMode or #self.commandHistory == 0 then return end
+    
+    if self.historyIndex > 1 then
+        self.historyIndex = self.historyIndex - 1
+        
+        for x = #self.prompt + 1, self.cols do
+            self:setCell(x, self.cursorY, " ", self.defaultFgColor, self.defaultBgColor)
+        end
+        
+        self.cursorX = #self.prompt + 1
+        self.currentInputLine = self.commandHistory[self.historyIndex]
+        for i = 1, #self.currentInputLine do
+            local char = self.currentInputLine:sub(i, i)
+            self:setCell(self.cursorX, self.cursorY, char, self.defaultFgColor, self.defaultBgColor)
+            self.cursorX = self.cursorX + 1
+        end
+    end
+end
+
+function UILib.Terminal:historyDown()
+    if not self.inputMode or #self.commandHistory == 0 then return end
+    
+    if self.historyIndex < #self.commandHistory then
+        self.historyIndex = self.historyIndex + 1
+        
+        for x = #self.prompt + 1, self.cols do
+            self:setCell(x, self.cursorY, " ", self.defaultFgColor, self.defaultBgColor)
+        end
+        
+        self.cursorX = #self.prompt + 1
+        self.currentInputLine = self.commandHistory[self.historyIndex]
+        for i = 1, #self.currentInputLine do
+            local char = self.currentInputLine:sub(i, i)
+            self:setCell(self.cursorX, self.cursorY, char, self.defaultFgColor, self.defaultBgColor)
+            self.cursorX = self.cursorX + 1
+        end
+    elseif self.historyIndex == #self.commandHistory then
+        self.historyIndex = #self.commandHistory + 1
+        
+        for x = #self.prompt + 1, self.cols do
+            self:setCell(x, self.cursorY, " ", self.defaultFgColor, self.defaultBgColor)
+        end
+        
+        self.cursorX = #self.prompt + 1
+        self.currentInputLine = ""
+    end
+end
+
+function UILib.Terminal:showHistoryCommand(index)
+    self:clearCurrentLine()
+    self:print(self.prompt)
+    self:print(self.commandHistory[index])
+end
+
+function UILib.Terminal:clearCurrentLine()
+    for x = 1, self.cols do
+        self:setCell(x, self.cursorY, " ", self.defaultFgColor, self.defaultBgColor)
+    end
+    self.cursorX = 1
+end
+
+function UILib.Terminal:copySelection()
+    if not self.selectionStart or not self.selectionEnd then return end
+    
+    local x1, y1, x2, y2 = self:normalizeSelection()
+    local text = ""
+    
+    for y = y1, y2 do
+        local lineStart = (y == y1) and x1 or 1
+        local lineEnd = (y == y2) and x2 or self.cols
+        
+        for x = lineStart, lineEnd do
+            local cell = self.buffer[y] and self.buffer[y][x]
+            if cell then
+                text = text .. cell.char
+            else
+                text = text .. " "
+            end
+        end
+        
+        if y < y2 then
+            text = text .. "\n"
+        end
+    end
+    
+    print("copied: " .. text)
+end
+
+function UILib.Terminal:paste()
+end
+
+function UILib.Terminal:selectAll()
+    self.selectionStart = {x = 1, y = 1}
+    self.selectionEnd = {x = self.cols, y = self.totalRows}
+end
+
+function UILib.Terminal:onMousePressed(x, y, button)
+    if button == MOUSE.MOUSE1 then
+        local cellX = math.floor((x - self.x) / self.cellWidth) + 1
+        local cellY = math.floor((y - self.y) / self.cellHeight) + 1
+        
+        cellX = math.max(1, math.min(self.cols, cellX))
+        cellY = math.max(1, math.min(self.rows, cellY))
+        
+        local absY = self.viewportTop + cellY - 1
+        
+        local shiftPressed = input.isKeyDown(KEY.LSHIFT) or input.isKeyDown(KEY.RSHIFT)
+        
+        if shiftPressed then
+            self.isSelecting = true
+            
+            if not self.selectionStart then
+                self.selectionStart = {x = cellX, y = absY}
+                self.selectionEnd = {x = cellX, y = absY}
+            end 
+        else
+            self.selectionStart = {x = cellX, y = absY}
+            self.selectionEnd = {x = cellX, y = absY}
+            self.isSelecting = true
+        end
+        
+        return true
+    end
+    
+    return false
+end
+
+function UILib.Terminal:onMouseMoved(x, y)
+    if not self.isSelecting then 
+        return false 
+    end
+    
+    local cellX = math.floor((x - self.x) / self.cellWidth) + 1
+    local cellY = math.floor((y - self.y) / self.cellHeight) + 1
+    
+    cellX = math.max(1, math.min(self.cols, cellX))
+    cellY = math.max(1, math.min(self.rows, cellY))
+    
+    local absY = self.viewportTop + cellY - 1
+    
+    local shiftPressed = input.isKeyDown(KEY.LSHIFT) or input.isKeyDown(KEY.RSHIFT)
+    
+    if shiftPressed then
+        if self.selectionStart then
+            self.selectionEnd = {x = cellX, y = absY}
+        else
+            self.selectionStart = {x = cellX, y = absY}
+            self.selectionEnd = {x = cellX, y = absY}
+        end
+    else
+        self.selectionEnd = {x = cellX, y = absY}
+    end
+    
+    return true
+end
+
+function UILib.Terminal:onMouseReleased(x, y, button)
+    if button == MOUSE.MOUSE1 and self.isSelecting then
+        self.isSelecting = false
+        
+        local cellX = math.floor((x - self.x) / self.cellWidth) + 1
+        local cellY = math.floor((y - self.y) / self.cellHeight) + 1
+        
+        cellX = math.max(1, math.min(self.cols, cellX))
+        cellY = math.max(1, math.min(self.rows, cellY))
+        
+        local absY = self.viewportTop + cellY - 1
+        
+        local shiftPressed = input.isKeyDown(KEY.LSHIFT) or input.isKeyDown(KEY.RSHIFT)
+        
+        if shiftPressed then
+            if self.selectionStart then
+                self.selectionEnd = {x = cellX, y = absY}
+            else
+                self.selectionStart = {x = cellX, y = absY}
+                self.selectionEnd = {x = cellX, y = absY}
+            end
+        else
+            local startX, startY = self.selectionStart.x, self.selectionStart.y
+            if startX == cellX and startY == absY then
+            else
+                self.selectionEnd = {x = cellX, y = absY}
+            end
+        end
+        
+        return true
+    end
+    
+    return false
+end
+
+function UILib.Terminal:onMouseScroll(delta)
+    if delta > 0 then
+        self:scrollUp()
+    else
+        self:scrollDown()
+    end
+    return true
+end
+
+function UILib.Terminal:destroy()
+    if self.renderTarget then
+        if self.mat then self.mat:destroy() end
+        self.renderTarget = nil
+    end
+    
+    UILib.Component.destroy(self)
+end
+
+function UILib.Terminal:setForegroundColor(color)
+    self.currentFgColor = color
+end
+
+function UILib.Terminal:setBackgroundColor(color)
+    self.currentBgColor = color
+end
+
+function UILib.Terminal:resetColors()
+    self.currentFgColor = self.defaultFgColor
+    self.currentBgColor = self.defaultBgColor
+    self.bold = false
+    self.italic = false
+    self.underline = false
+    self.blink = false
+    self.inverse = false
+    self.hidden = false
+end
+
+function UILib.Terminal:printColored(text, fgColor, bgColor)
+    local oldFg = self.currentFgColor
+    local oldBg = self.currentBgColor
+    
+    if fgColor then self.currentFgColor = fgColor end
+    if bgColor then self.currentBgColor = bgColor end
+    
+    self:print(text)
+    
+    self.currentFgColor = oldFg
+    self.currentBgColor = oldBg
+end
+
+function UILib.Terminal:printLineColored(text, fgColor, bgColor)
+    local oldFg = self.currentFgColor
+    local oldBg = self.currentBgColor
+    
+    if fgColor then self.currentFgColor = fgColor end
+    if bgColor then self.currentBgColor = bgColor end
+    
+    self:printLine(text)
+    
+    self.currentFgColor = oldFg
+    self.currentBgColor = oldBg
+end
+
+function UILib.Terminal:clearToColor(fgColor, bgColor)
+    local oldFg = self.currentFgColor
+    local oldBg = self.currentBgColor
+    
+    if fgColor then self.currentFgColor = fgColor end
+    if bgColor then self.currentBgColor = bgColor end
+    
+    self:clear()
+    
+    self.currentFgColor = oldFg
+    self.currentBgColor = oldBg
+end
+
+function UILib.Terminal:testRGBColors()
+    self:printLine("=== RGB Color Demo ===")
+    
+    self:print("\x1b[38;5;196m") 
+    self:print("256-color red ")
+    
+    self:print("\x1b[38;5;46m")
+    self:print("256-color green ")
+    
+    self:print("\x1b[38;5;21m")
+    self:print("256-color blue")
+    self:print("\x1b[0m\n")
+    
+    self:print("\x1b[38;2;255;100;100m")
+    self:print("RGB light red ")
+    
+    self:print("\x1b[38;2;100;255;100m")
+    self:print("RGB light green ")
+    
+    self:print("\x1b[38;2;100;100;255m")
+    self:print("RGB light blue")
+    self:print("\x1b[0m\n")
+    
+    self:print("\x1b[48;2;50;50;100m")
+    self:print("\x1b[38;2;255;255;200m")
+    self:print("Yellow on dark blue")
+    self:print("\x1b[0m\n")
+    
+    local text = "SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT SAMPLE TEXT"
+    for i = 1, #text do
+        local hue = ((i - 1) / #text)
+        local clr = Color(hue * 360, 1, 1):hsvToRGB()
+        
+        self:print(string.format("\x1b[38;2;%d;%d;%dm%s", clr.r, clr.g, clr.b, text:sub(i, i)))
+    end
+    self:print("\x1b[0m\n")
+    
+    self:printLine("--- Gradient ---")
+    local gradientText = "Gradient"
+    for i = 1, #gradientText do
+        local hue = 0.6 
+        local saturation = i / #gradientText
+        local value = 1
+        local hsvColor = Color(hue * 360, saturation, value)
+        local rgbColor = hsvColor:hsvToRGB()
+        local r, g, b = rgbColor.r, rgbColor.g, rgbColor.b
+        self:print(string.format("\x1b[38;2;%d;%d;%dm%s", r, g, b, gradientText:sub(i, i)))
+    end
+    self:print("\x1b[0m\n")
+    self:printLine("--- Rainbow bg ---")
+    for i = 1, 80 do
+        local hue = (i - 1) / 80
+        local hsvColor = Color(hue * 360, 0.8, 0.8)
+        local rgbColor = hsvColor:hsvToRGB()
+        local r, g, b = rgbColor.r, rgbColor.g, rgbColor.b
+
+        self:print(string.format("\x1b[48;2;%d;%d;%dm\x1b[38;2;0;0;0m ", r, g, b))
+    end
+    self:print("\x1b[0m\n")
+    
+    
+    self:resetColors()
+end
+
+
+
+function UILib.Terminal:testColors()
+    self:printLine("=== Colors ===")
+    
+    self:setForegroundColor(Color(255, 0, 0))
+    self:printLine("Red")
+    
+    self:setForegroundColor(Color(0, 255, 0))
+    self:printLine("Green")
+    
+    self:setForegroundColor(Color(0, 0, 255))
+    self:printLine("Blue")
+    
+    self:setBackgroundColor(Color(50, 50, 100))
+    self:setForegroundColor(Color(255, 255, 255))
+    self:printLine("White on dark blue")
+    
+    self:resetColors()
+    self:printLine("Back to default colors")
+    
+    self:print("\x1b[31m")
+    self:print("ANSI red ")
+    self:print("\x1b[32m")
+    self:print("ANSI green ")
+    self:print("\x1b[33m")
+    self:print("ANSI yellow")
+    self:print("\x1b[0m")   -- reset
+    self:printLine(" reset")
+    
+    self:print("\x1b[1mBold text\x1b[0m\n")
+    
+    self:print("\x1b[4mUnderlined text\x1b[0m\n")
+    
+    self:print("\x1b[1;31;42mBold red on green background\x1b[0m\n")
+    
+    self:print("\x1b[91mBright red\x1b[0m ")
+    self:print("\x1b[92mBright green\x1b[0m ")
+    self:print("\x1b[93mBright yellow\x1b[0m\n")
+    
+    self:resetColors()
+end

@@ -1,0 +1,81 @@
+--@name UILib Icon
+--@author soldnotsold
+--@client
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+local table = table
+local math = math
+local render = render
+
+
+--[[
+   ____            
+  /  _/______  ___ 
+ _/ // __/ _ \/ _ \
+/___/\__/\___/_//_/
+                   
+]]--
+
+---@class UILib.Icon: UILib.Component
+UILib.Icon = class("Icon", UILib.Component)
+
+function UILib.Icon:initialize(size, screen)
+    self.size = size or UILib.Skin.Icon.size    
+    UILib.Component.initialize(self, 0, 0, size, size, false, screen)
+    
+    self.material = nil
+end
+
+
+function UILib.Icon:setMaterial(material)
+    self.material = material
+    return self
+end
+
+function UILib.Icon:ensureValidMaterial()
+    if not self.material then
+        self.material = material.create("UnlitGeneric")
+    end    
+end
+
+function UILib.Icon:setTexture(texture, textureKey)
+    self:ensureValidMaterial()
+    
+    local textureKey = textureKey or "$basetexture"
+    self.material:setTexture(textureKey, texture)
+end
+
+function UILib.Icon:setImage(path)
+    if self.material then self.material:destroy() end
+    self.material = material.createFromImage(path, "")
+end
+
+function UILib.Icon:setTextureURL(url)
+    self:ensureValidMaterial()
+    pcall(function()
+        self.material:setTextureURL( "$basetexture", url, function( _, _, width, height, layout )
+            if layout then
+                local scaler = math.max( width, height )
+                local ratio = ( 1024 / scaler )
+                layout( 0, 0, ratio * width, ratio * height )
+            end
+        end)
+    end)
+end
+
+function UILib.Icon:setSize(w, h)
+    if h == nil then h = w end
+    UILib.Component.setSize(self, w, h)
+    return self
+end
+
+
+function UILib.Icon:_draw()
+    if not self.material then return end
+    render.setColor(Color(255,255,255))
+    render.setMaterial(self.material)
+    render.drawTexturedRectFast(self.x, self.y, self.w, self.h)
+end

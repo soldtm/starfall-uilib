@@ -1,0 +1,333 @@
+--@name UILib Progress Bar
+--@author soldnotsold
+--@client 
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+
+local table = table
+local math = math
+local render = render
+
+--[[
+  ___                               ___           
+ | _ \_ _ ___  __ _ _ _ ___ ______ | _ ) __ _ _ _ 
+ |  _/ '_/ _ \/ _` | '_/ -_|_-<_-< | _ \/ _` | '_|
+ |_| |_| \___/\__, |_| \___/__/__/ |___/\__,_|_|  
+              |___/                               
+--]]
+
+---@class UILib.ProgressBar: UILib.Component
+UILib.ProgressBar = class("ProgressBar", UILib.Component)
+
+function UILib.ProgressBar:initialize(x, y, w, h, screen)
+    UILib.Component.initialize(self, x, y, w, h, false, screen)
+    
+
+    self.value = 0.0 
+    self.minValue = 0.0
+    self.maxValue = 1.0
+    self.orientation = "horizontal"  
+    self.direction = "left_to_right"
+    
+    self.backgroundColor = UILib.Skin.ProgressBar.backgroundColor
+    self.progressColor = UILib.Skin.ProgressBar.progressColor
+    self.borderColor = UILib.Skin.ProgressBar.borderColor //TODO
+    self.textColor = UILib.Skin.ProgressBar.textColor
+    
+    self.showBorder = true
+    self.borderWidth = UILib.Skin.ProgressBar.borderWidth
+    self.cornerRadius = UILib.Skin.ProgressBar.cornerRadius
+    self.font = UILib.Skin.ProgressBar.font
+    self.showText = false
+    self.textColor = UILib.Skin.ProgressBar.textColor
+    self.textFormat = "percentage"  -- "percentage", "fraction", "value", "custom"
+    self.customText = ""
+    
+    self.animatedValue = self.value
+    self.animationSpeed = 0.1
+    self.smoothAnimation = true
+end
+
+function UILib.ProgressBar:setValue(value)
+    self.value = math.max(self.minValue, math.min(self.maxValue, value))
+    if not self.smoothAnimation then
+        self.animatedValue = self.value
+    end
+end
+
+function UILib.ProgressBar:setRange(min, max)
+    self.minValue = min
+    self.maxValue = max
+    self.value = math.max(min, math.min(max, self.value))
+end
+
+function UILib.ProgressBar:getValue()
+    return self.value
+end
+
+function UILib.ProgressBar:getNormalizedValue()
+    return (self.value - self.minValue) / (self.maxValue - self.minValue)
+end
+
+function UILib.ProgressBar:setNormalizedValue(normalized)
+    self:setValue(self.minValue + normalized * (self.maxValue - self.minValue))
+end
+
+function UILib.ProgressBar:addValue(delta)
+    self:setValue(self.value + delta)
+end
+
+function UILib.ProgressBar:setOrientation(orientation, direction)
+    self.orientation = orientation or "horizontal"
+    if direction then
+        self.direction = direction
+    else
+        if orientation == "horizontal" then
+            self.direction = "left_to_right"
+        else
+            self.direction = "bottom_to_top"
+        end
+    end
+end
+
+
+function UILib.ProgressBar:setShowText(show)
+    self.showText = show
+end
+
+function UILib.ProgressBar:setTextFormat(format)
+    self.textFormat = format
+end
+
+function UILib.ProgressBar:setCustomText(text)
+    self.customText = text
+    self.textFormat = "custom"
+end
+
+
+function UILib.ProgressBar:setSmoothAnimation(enabled)
+    self.smoothAnimation = enabled
+    if not enabled then
+        self.animatedValue = self.value
+    end
+end
+
+function UILib.ProgressBar:setAnimationSpeed(speed)
+    self.animationSpeed = speed
+end
+
+function UILib.ProgressBar:_draw()
+    if self.smoothAnimation and self.animatedValue ~= self.value then
+        local diff = self.value - self.animatedValue
+        self.animatedValue = self.animatedValue + diff * self.animationSpeed
+        if math.abs(diff) < 0.001 then
+            self.animatedValue = self.value
+        end
+    end
+    
+    local normalizedValue = (self.animatedValue - self.minValue) / (self.maxValue - self.minValue)
+    
+    if self.showBorder and self.borderWidth > 0 then
+        render.setColor(self.borderColor)
+        if self.cornerRadius > 0 then
+            render.drawRoundedBox(self.cornerRadius, self.x, self.y, self.w, self.h)
+        else
+            render.drawRectOutline(self.x, self.y, self.w, self.h, self.borderWidth)
+        end
+    end
+    
+    render.setColor(self.backgroundColor)
+    if self.cornerRadius > 0 then
+        render.drawRoundedBox(self.cornerRadius, self.x+self.borderWidth, self.y+self.borderWidth, self.w-self.borderWidth*2, self.h-self.borderWidth*2)
+    else
+        render.drawRect(self.x+self.borderWidth, self.y+self.borderWidth, self.w-self.borderWidth*2, self.h-self.borderWidth*2)
+    end
+    
+    if normalizedValue > 0 then
+        render.setColor(self.progressColor)
+        local progressRect = self:calculateProgressRect(normalizedValue)
+        
+        if self.cornerRadius > 0 then
+            render.drawRoundedBox(self.cornerRadius, progressRect.x, progressRect.y, progressRect.w, progressRect.h)
+        else
+            render.drawRect(progressRect.x, progressRect.y, progressRect.w, progressRect.h)
+        end
+    end
+
+    
+    if self.showText then
+        self:drawProgressText(normalizedValue)
+    end
+end
+
+function UILib.ProgressBar:calculateProgressRect(normalizedValue)
+    local rect = {x = self.x, y = self.y, w = 0, h = 0}
+    
+    if self.orientation == "horizontal" then
+        rect.h = self.h
+        rect.w = self.w * normalizedValue
+        
+        if self.direction == "right_to_left" then
+            rect.x = self.x + self.w - rect.w
+        end
+    else -- vertical
+        rect.w = self.w
+        rect.h = self.h * normalizedValue
+        
+        if self.direction == "bottom_to_top" then
+            rect.y = self.y + self.h - rect.h
+        else -- top_to_bottom
+            rect.y = self.y
+        end
+    end
+    
+    return rect
+end
+
+function UILib.ProgressBar:drawProgressText(normalizedValue)
+    local text = self:getProgressText(normalizedValue)
+    if not text or text == "" then return end
+    
+    local textWidth = render.getTextSize(text)
+    local textHeight = 16 
+    
+    local textX = self.x + (self.w - textWidth) / 2
+    local textY = self.y + (self.h - textHeight) / 2
+    
+    render.setColor(self.textColor)
+    render.drawSimpleText(textX, textY, text)
+    --render.drawText(textX, textY, text)
+end
+
+function UILib.ProgressBar:getProgressText(normalizedValue)
+    if self.textFormat == "custom" then
+        return self.customText
+    elseif self.textFormat == "percentage" then
+        return string.format("%d%%", math.floor(normalizedValue * 100))
+    elseif self.textFormat == "fraction" then
+        return string.format("%.1f/%.1f", self.animatedValue, self.maxValue)
+    elseif self.textFormat == "value" then
+        return string.format("%.1f", self.animatedValue)
+    end
+    return ""
+end
+
+function UILib.ProgressBar:isComplete()
+    return self.value >= self.maxValue
+end
+
+function UILib.ProgressBar:isEmpty()
+    return self.value <= self.minValue
+end
+
+function UILib.ProgressBar:reset()
+    self.value = self.minValue
+    self.animatedValue = self.minValue
+end
+
+function UILib.ProgressBar:fill()
+    self.value = self.maxValue
+    if not self.smoothAnimation then
+        self.animatedValue = self.maxValue
+    end
+end
+--[[
+  ___                         _          _   ___                               ___           
+ / __| ___ __ _ _ __  ___ _ _| |_ ___ __| | | _ \_ _ ___  __ _ _ _ ___ ______ | _ ) __ _ _ _ 
+ \__ \/ -_) _` | '  \/ -_) ' \  _/ -_) _` | |  _/ '_/ _ \/ _` | '_/ -_|_-<_-< | _ \/ _` | '_|
+ |___/\___\__, |_|_|_\___|_||_\__\___\__,_| |_| |_| \___/\__, |_| \___/__/__/ |___/\__,_|_|  
+          |___/                                          |___/                               
+--]]
+
+---@class UILib.SegmentedProgressBar: UILib.ProgressBar
+UILib.SegmentedProgressBar = class("SegmentedProgressBar", UILib.ProgressBar)
+
+function UILib.SegmentedProgressBar:initialize(x, y, w, h, segmentCount, screen)
+    UILib.ProgressBar.initialize(self, x, y, w, h, screen)
+    
+    self.segmentCount = segmentCount or 10
+    self.segmentSpacing = UILib.Skin.SegmentedProgressBar.segmentGap or 2
+    self.segmentColors = {}
+    
+    self.segmentColor = UILib.Skin.SegmentedProgressBar.segmentColor
+    self.segmentBackgroundColor = UILib.Skin.SegmentedProgressBar.segmentBackgroundColor
+    self.segmentBorderColor = UILib.Skin.SegmentedProgressBar.segmentBorderColor
+    
+    for i = 1, self.segmentCount do
+        table.insert(self.segmentColors, self.segmentColor)
+    end
+end
+
+function UILib.SegmentedProgressBar:_draw()
+    if self.smoothAnimation and self.animatedValue ~= self.value then
+        local diff = self.value - self.animatedValue
+        self.animatedValue = self.animatedValue + diff * self.animationSpeed
+        if math.abs(diff) < 0.001 then
+            self.animatedValue = self.value
+        end
+    end
+    
+    local normalizedValue = (self.animatedValue - self.minValue) / (self.maxValue - self.minValue)
+    local filledSegments = math.floor(normalizedValue * self.segmentCount)
+    
+    render.setColor(self.segmentBackgroundColor or self.backgroundColor)
+    if self.cornerRadius > 0 then
+        render.drawRoundedBox(self.cornerRadius, self.x, self.y, self.w, self.h)
+    else
+        render.drawRect(self.x, self.y, self.w, self.h)
+    end
+    
+    local totalSpacing = self.segmentSpacing * (self.segmentCount - 1)
+    local segmentWidth = (self.w - totalSpacing) / self.segmentCount
+    
+    for i = 1, self.segmentCount do
+        local segmentX = self.x + (i - 1) * (segmentWidth + self.segmentSpacing)
+        
+        if i <= filledSegments then
+            render.setColor(self.segmentColors[i] or self.segmentColor or self.progressColor)
+            
+            if self.cornerRadius > 0 then
+                local segmentCornerRadius = math.min(2, self.cornerRadius)
+                render.drawRoundedBox(segmentCornerRadius, segmentX, self.y, segmentWidth, self.h)
+            else
+                render.drawRect(segmentX, self.y, segmentWidth, self.h)
+            end
+        end
+    end
+    
+    if self.showBorder and self.borderWidth > 0 then
+        render.setColor(self.segmentBorderColor or self.borderColor)
+        if self.cornerRadius > 0 then
+            --(self.cornerRadius, self.x, self.y, self.w, self.h, self.borderWidth)
+            render.drawRectOutline(self.x, self.y, self.w, self.h, self.borderWidth)
+            
+        else
+            render.drawRectOutline(self.x, self.y, self.w, self.h, self.borderWidth)
+        end
+    end
+    
+    if self.showText then
+        self:drawProgressText(normalizedValue)
+    end
+end
+
+function UILib.SegmentedProgressBar:setSegmentColor(segmentIndex, color)
+    if segmentIndex >= 1 and segmentIndex <= self.segmentCount then
+        self.segmentColors[segmentIndex] = color
+    end
+end
+
+function UILib.SegmentedProgressBar:setSegmentSpacing(spacing)
+    self.segmentSpacing = spacing
+end
+
+function UILib.SegmentedProgressBar:setSegmentCount(count)
+    self.segmentCount = count
+    self.segmentColors = {}
+    for i = 1, self.segmentCount do
+        table.insert(self.segmentColors, self.segmentColor)
+    end
+end
