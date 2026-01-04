@@ -19,8 +19,6 @@ local IS_LINUX = os.isLinux()
 
 --]]
 
-
-
 ---@class UILib.Terminal: UILib.Component
 UILib.Terminal = class("Terminal", UILib.Component)
 
@@ -30,7 +28,7 @@ function UILib.Terminal:initialize(x, y, cols, rows, screen)
     render.setFont(self.terminalFont)
     local charWidth, charHeight = render.getTextSize("M")
     
-    self.cols = cols or 80
+    self.cols = cols or 48
     self.rows = rows or 24
     self.cellWidth = charWidth
     self.cellHeight = charHeight

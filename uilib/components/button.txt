@@ -3,7 +3,6 @@
 --@client
 --@include uilib/components/label.txt
 
-
 if not UILib then
     throw("Import uilib/base first!")
 end

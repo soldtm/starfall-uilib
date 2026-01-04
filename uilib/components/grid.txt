@@ -8,7 +8,6 @@ end
 
 local table = table
 local math = math
-local render = render
 
 --[[
    ___     _    _ 

@@ -15,7 +15,6 @@ local table = table
 local math = math
 local render = render
 
-
 --[[
    ___                        __         ______           __ 
   / _ \_______  ___  ___ ____/ /___ __  / __/ /  ___ ___ / /_
@@ -23,8 +22,6 @@ local render = render
 /_/  /_/  \___/ .__/\__/_/  \__/\_, / /___/_//_/\__/\__/\__/ 
              /_/               /___/                                    
 --]]
-
-
 
 ---@class UILib.PropertySheet: UILib.Component
 UILib.PropertySheet = class("PropertySheet", UILib.Component)
@@ -121,14 +118,12 @@ function UILib.PropertySheet:createTabButton(index, title)
     local tabButton = UILib.Button:new(0, self.tabHeight, self.screen)
     tabButton:setParent(self.tabBar)
     tabButton:setText(title)
-    --tabButton:setFont(self.headerFont)
     
     tabButton.backgroundColor = self.tabBackgroundColor
     tabButton.backgroundHoverColor = self.tabHoverColor
     tabButton.backgroundPressedColor = self.tabActiveColor
     tabButton.textColor = self.tabTextColor
     tabButton.cornerRadius = self.tabCornerRadius
-    //tabButton.borderWidth = 2
     
     tabButton:setRoundCorners({
         top_left = true,

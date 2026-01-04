@@ -279,7 +279,7 @@ function UILib.RadioButton:destroy()
     UILib.Component.destroy(self)
 end
 
-function UILib.RadioButton.getGroup(groupName)
+function UILib.RadioButton.getGroupByName(groupName)
     return UILib.RadioButton.groups and UILib.RadioButton.groups[groupName] or {}
 end
 

@@ -11,9 +11,12 @@ local math = math
 local render = render
 
 --[[
-Marquee
+   __  ___                          
+  /  |/  /__ ________ ___ _____ ___ 
+ / /|_/ / _ `/ __/ _ `/ // / -_) -_)
+/_/  /_/\_,_/_/  \_, /\_,_/\__/\__/ 
+                  /_/               
 ]]--
-
 
 -- Base Marquee class
 ---@class UILib.Marquee: UILib.Component

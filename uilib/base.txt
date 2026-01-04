@@ -19,29 +19,14 @@ UILib.pk = 0
 UILib.screenWidth = 512 --sf screen default //TODO
 UILib.screenHeight = 512 --sf screen default //TODO
 UILib.stencilEnabled = false 
-UILib.maxFPS = 144 //TODO
+UILib.maxFPS = 144
 UILib.nextFrame = 0    
 UILib.fpsDelta = 1 / UILib.maxFPS
 UILib.renderBounds = {nil,nil,nil,nil}
 UILib.Debug = {}
-UILib.Debug.debugMode = true
+UILib.Debug.debugMode = false
 UILib.Debug.drawComponentOutlines = false
 
-
---[[ TODOS:
-multiscreen support
-name skin props same as component props
-unify init functions args
-listbox
-dock? (like derma)
-drawer 
-color picker components? render.readPixel(number x, number y)
-window resize?
-tooltips?
-dropdown component option proper size
-dropdown apply layout on option change (text shifted)
-scissor rect stack mgr
-]]
 
 --[[
   ___   _     _        
@@ -330,8 +315,22 @@ local function isAltPressed()
     return input.isKeyDown(KEY.LALT) or input.isKeyDown(KEY.RALT)
 end
 
---- Function to convert a key code to a text character
+--- Function to check if a key is a text key
+function UILib.isTextKey(keyCode)
+    return UILib.keyToText(keyCode) ~= nil
+end
 
+--- Function to check if a key is a navigation key
+function UILib.isNavigationKey(keyCode)
+    return UILib.NavigationKeys[keyCode] or false
+end
+
+--- Function to check if a key is a control key
+function UILib.isControlKey(keyCode)
+    return UILib.ControlKeys[keyCode] or false
+end
+
+--- Function to convert a key code to a text character
 function UILib.keyToText(keyCode)
     if UILib.ControlKeys[keyCode] then
         return nil
@@ -395,21 +394,6 @@ function UILib.getKeyName(keyCode)
     return "UNKNOWN"
 end
 
---- Function to check if a key is a text key
-function UILib.isTextKey(keyCode)
-    return UILib.keyToText(keyCode) ~= nil
-end
-
---- Function to check if a key is a navigation key
-function UILib.isNavigationKey(keyCode)
-    return UILib.NavigationKeys[keyCode] or false
-end
-
---- Function to check if a key is a control key
-function UILib.isControlKey(keyCode)
-    return UILib.ControlKeys[keyCode] or false
-end
-
 function UILib.getKeyboardState()
     return {
         shift = isShiftPressed(),
@@ -422,7 +406,7 @@ function UILib.getKeyboardState()
 end
 
 
-hook.add("InputPressed", "UILib_KeyPress", function(keyCode)
+hook.add("InputPressed", "___UILib_KeyPress", function(keyCode)
     if not input.isControlLocked() then return end
     UILib.handleKeyboardInput(keyCode)
 end)
@@ -517,7 +501,8 @@ UILib.InputHandler = {
 
 ---Adds a modifier function for cursor position
 ---Useful when drawing on RT or screen is rotated or translated
----@see render.setMatrix()
+---@see render.setMatrix
+---@see UILib.drawRT
 function UILib.addCursorPosModifier(func, screen)
     if not screen then
         UILib.InputHandler.cursorPosModifiers[0] = func
@@ -700,7 +685,7 @@ function UILib.handleMouseReleased(mouseX, mouseY, button)
                 end
                 
                 if not consumedOnClick then
-                    //TODO
+                    //TODO broken when event is propagated 
                     //if UILib.isPointInComponent(mouseX, mouseY, current) then
                         consumedOnClick = current:_onClick(player())
                     //end
@@ -1346,8 +1331,6 @@ function UILib.Component:getYOffset()
     return 0
 end
 
-
-
 function UILib.Component:isInRenderBounds()
     if UILib.renderBounds[1] then
         if self.x+self.w < UILib.renderBounds[1] then return false end
@@ -1358,9 +1341,10 @@ function UILib.Component:isInRenderBounds()
     
     return true
 end
-    
+
 ---@private
 function UILib.Component:_draw() end
+
 
 ---@private
 function UILib.Component:__draw()
@@ -1397,7 +1381,6 @@ function UILib.Component:__draw()
 end
 
 
-
 ---Sets position
 ---@param x integer x coordinate
 ---@param y integer y coordinate
@@ -1430,24 +1413,7 @@ function UILib.Component:setPos(x, y, absolute, ignoreOffs)
     return self
 end
 
---[[
-function UILib.Component:setPos(x, y, absolute)
-        if self.parent and not absolute then
-            self.relX = x
-            self.relY = y
-            self.x = self.parent.x + x
-            self.y = self.parent.y + y
-        else
-            self.x = x
-            self.y = y
-            if self.parent then
-                self.relX = x - self.parent.x
-                self.relY = y - self.parent.y
-            end
-        end
-    self:updateChildrenPositions()
-end
-]]
+
 ---@param alignment string Sets alignment to Component inside its parent
 function UILib.Component:setAlignment(alignment)
     self.alignment = alignment
@@ -1547,7 +1513,6 @@ function UILib.Component:setSize(w,h)
 end
 
 ---Internal input event handlers
-
 ---@private
 function UILib.Component:_onClick(ply) return self:onClick(ply) end
 
@@ -1691,7 +1656,6 @@ function UILib.Component.hasFocus()
     return UILib.InputHandler.focusedComponent == self
 end
 
-
 ---Returns last mouse position
 ---@return integer x, integer y
 function UILib.getMousePosition()
@@ -1742,12 +1706,10 @@ function UILib.Component:destroy()
             break
         end
     end
-    --self:cleanup()
 end
 
 ---Moves component to the top of drawing order
 function UILib.Component:moveToFront()
-    
     local lastComponent = UILib.components[#UILib.components]
     if lastComponent ~= self then
         for i = 1, #UILib.components - 1 do

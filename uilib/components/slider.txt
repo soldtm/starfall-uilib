@@ -160,12 +160,6 @@ function UILib.Slider:drawTrack()
     end
     
     render.setColor(self.borderColor)
-    if self.thumbRounded then
-        --render.drawRoundedBoxOutline(self.trackHeight / 2, trackRect.x, trackRect.y, trackRect.w, trackRect.h, 1)
-        render.drawRectOutline(trackRect.x, trackRect.y, trackRect.w, trackRect.h, 1)
-    else
-        render.drawRectOutline(trackRect.x, trackRect.y, trackRect.w, trackRect.h, 1)
-    end
 end
 
 function UILib.Slider:drawProgress(normalizedValue)
@@ -241,7 +235,6 @@ function UILib.Slider:drawValueText(normalizedValue)
     end
     render.setColor(self.textColor)
     render.drawSimpleText(textX, textY, text)
-    --render.drawText(textX, textY, text)
 end
 
 function UILib.Slider:getTrackRect()

@@ -1,0 +1,13 @@
+Finish multiscreen support
+Name skin properties same as component properties
+Unify init functions args
+Listbox component
+Docking? (like derma)
+Drawer component
+Color picker components
+Window resize feature?
+Tooltips?
+Fix dropdown component options (size)
+Dropdown apply layout on option change (text shifted)
+Scissor rect values stack
+Minify files?

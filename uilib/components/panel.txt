@@ -11,8 +11,6 @@ local table = table
 local math = math
 local render = render
 
-
-
 --[[
   ___               _ 
  | _ \__ _ _ _  ___| |

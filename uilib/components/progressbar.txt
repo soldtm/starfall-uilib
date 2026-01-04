@@ -301,9 +301,7 @@ function UILib.SegmentedProgressBar:_draw()
     if self.showBorder and self.borderWidth > 0 then
         render.setColor(self.segmentBorderColor or self.borderColor)
         if self.cornerRadius > 0 then
-            --(self.cornerRadius, self.x, self.y, self.w, self.h, self.borderWidth)
-            render.drawRectOutline(self.x, self.y, self.w, self.h, self.borderWidth)
-            
+            render.drawRoundedBox(self.cornerRadius, self.x+self.borderWidth, self.y+self.borderWidth, self.w-self.borderWidth*2, self.h-self.borderWidth*2)
         else
             render.drawRectOutline(self.x, self.y, self.w, self.h, self.borderWidth)
         end
