@@ -1418,8 +1418,11 @@ function UILib.Terminal:onMouseScroll(delta)
 end
 
 function UILib.Terminal:destroy()
+    if self.mat then self.mat:destroy() end
     if self.renderTarget then
-        if self.mat then self.mat:destroy() end
+        if render.renderTargetExists() then
+            render.destroyRenderTarget(self.renderTarget)
+        end
         self.renderTarget = nil
     end
     
