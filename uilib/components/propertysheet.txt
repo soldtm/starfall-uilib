@@ -60,7 +60,7 @@ function UILib.PropertySheet:initialize(x, y, w, h, screen)
     self.contentPanel:setParent(self)
     self.contentPanel:setPos(0, self.tabHeight)
     self.contentPanel.backgroundColor = self.contentBackgroundColor
-    self.padding = UILib.Skin.PropertySheet.padding or 8
+    self.padding = UILib.Skin.PropertySheet.padding or 0
     
     self.tabButtons = {}
     self:calculateLayout()
@@ -70,8 +70,8 @@ function UILib.PropertySheet:calculateLayout()
     self.contentArea = {
         x = self.padding,
         y = self.padding,
-        w = self.w,
-        h = self.h - self.tabHeight * 2
+        w = self.w-self.padding*2,
+        h = self.h - self.tabHeight * 2 - self.padding*2
     }
     
     self.tabArea = {
