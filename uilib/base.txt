@@ -27,6 +27,51 @@ UILib.Debug = {}
 UILib.Debug.debugMode = false
 UILib.Debug.drawComponentOutlines = false
 
+//Overriding original functions to keep track of all RTs and materials
+UILib.knownRenderTargets = {}
+UILib.knownMaterials = {}
+
+local oldCreateRenderTarget = render.createRenderTarget
+local oldDestroyRenderTarget = render.destroyRenderTarget 
+local oldCreateMaterial = material.create
+local oldCreateMaterialFromImage = material.createFromImage
+
+function render.createRenderTarget(name)
+    table.insert(UILib.knownRenderTargets, name)
+    return oldCreateRenderTarget(name)
+end
+
+function render.destroyRenderTarget(name)
+    UILib.knownRenderTargets[name] = nil
+    table.removeByValue(UILib.knownRenderTargets, name)
+    return oldDestroyRenderTarget(name)    
+end
+
+function material.create(shader)
+    local mat = oldCreateMaterial(shader)    
+    table.insert(UILib.knownMaterials, mat)   
+    return mat 
+end
+
+function material.createFromImage(path, params)
+    local mat = oldCreateMaterialFromImage(path, params)
+    table.insert(UILib.knownMaterials, mat)    
+    return mat    
+end
+
+function UILib.destroyRenderTargets()
+    for k,v in pairs(UILib.knownRenderTargets) do
+        if render.renderTargetExists(v) then render.destroyRenderTarget(v) end
+    end
+end
+
+function UILib.destroyMaterials()
+    for k,v in pairs(UILib.knownMaterials) do
+        if isValid(v) then v:destroy() end
+        UILib.knownMaterials[k] = nil
+    end
+end
+
 
 --[[
   ___   _     _        
@@ -1350,7 +1395,7 @@ function UILib.Component:_draw() end
 function UILib.Component:__draw()
     if not self.visible then return end
     
-    if self.clippingEnabled then
+    if self.clippingEnabled and render.isInRenderTarget() then
         render.enableScissorRect(self.x, self.y, self.x+self.w, self.y+self.h)
     end
 
@@ -1365,7 +1410,7 @@ function UILib.Component:__draw()
         for _, child in ipairs(self.children) do
             if not child:isInRenderBounds() then continue end
             
-            if self.clippingEnabled then 
+            if self.clippingEnabled and render.isInRenderTarget() then 
                 render.enableScissorRect(self.x, self.y, self.x+self.w, self.y+self.h)
             end
             child:__draw()
