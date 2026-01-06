@@ -9,11 +9,11 @@ if not UILib then
 end
 
 if not UILib.Button then
-    require("uilib/button.txt")
+    require("uilib/components/button.txt")
 end
 
 if not UILib.Label then
-    require("uilib/label.txt")
+    require("uilib/components/label.txt")
 end    
 
 
