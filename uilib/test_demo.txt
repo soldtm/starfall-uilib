@@ -1,0 +1,1103 @@
+--@name UILib Test & Demo
+--@author soldnotsold
+--@client
+--@include uilib/all.txt
+
+// Initialize render target for RT mode
+local mat = material.create("UnlitGeneric")
+local rtName = "UILib_Test_RT"
+render.createRenderTarget(rtName)
+mat:setTextureRenderTarget("$basetexture", rtName)
+
+require("uilib/all.txt")
+
+-- RT is 2x bigger than screen, so we need to adjust cursor coordinates
+UILib.addCursorPosModifier(function(cursorX, cursorY)
+    return cursorX * 2, cursorY * 2
+end)
+
+local quotaMax = chip():getQuotaMax()
+local quotaPerc = quotaMax / 100
+local ramMax = ramMax()
+local ramPerc = ramMax / 100
+
+function createUITests()
+    local mainSheet = UILib.PropertySheet:new(12, 12, 1000, 800)
+    
+    -- Tab 1: Buttons
+    local buttonsPanel = UILib.Panel:new(0, 0)
+    buttonsPanel:setSize(0, 750)
+    buttonsPanel.backgroundColor = Color(40, 40, 40, 200)
+    
+    local buttonsTab = mainSheet:addSheet("Buttons", buttonsPanel, "icon16/application_go.png")
+    
+    -- Regular button
+    local btn1 = UILib.Button:new(120, 40)
+    btn1:setText("Normal Button")
+    btn1:setParent(buttonsPanel)
+    btn1:setPos(20, 20)
+    
+    function btn1:onClick()
+        self:setText("Clicked")
+        timer.simple(1, function()
+            if self and self.setText then
+                self:setText("Normal Button")
+            end
+        end)
+    end
+    
+    -- Disabled button
+    local btn2 = UILib.Button:new(120, 40)
+    btn2:setText("Disabled")
+    btn2:setParent(buttonsPanel)
+    btn2:setPos(160, 20)
+    btn2:setEnabled(false)
+    
+    -- Togglable button
+    local btn3 = UILib.Button:new(120, 40)
+    btn3:setText("Toggle OFF")
+    btn3:setTogglable(true)
+    btn3:setToggledText("Toggle ON")
+    btn3:setToggledColors(Color(0, 100, 0), Color(255, 255, 255))
+    btn3:setParent(buttonsPanel)
+    btn3:setPos(300, 20)
+    
+    function btn3:onToggle(state)
+        print("Button toggled:", state)
+    end
+    
+    -- Icon button
+    local btn4 = UILib.Button:new(120, 40)
+    btn4:setText("Icon")
+    btn4:setIcon("icon16/accept.png")
+    btn4:setParent(buttonsPanel)
+    btn4:setPos(440, 20)
+    
+    -- Button with hover effect
+    local btn5 = UILib.Button:new(120, 40)
+    btn5:setText("Hover Test")
+    btn5.backgroundHoverColor = Color(100, 150, 255)
+    btn5:setParent(buttonsPanel)
+    btn5:setPos(580, 20)
+    
+    -- Large button
+    local btn6 = UILib.Button:new(200, 60)
+    btn6:setText("Large Button")
+    btn6:setParent(buttonsPanel)
+    btn6:setPos(20, 80)
+    
+    -- Button with custom colors
+    local btn7 = UILib.Button:new(120, 40)
+    btn7:setText("Custom Colors")
+    btn7.backgroundColor = Color(200, 100, 100)
+    btn7.textColor = Color(255, 255, 0)
+    btn7:setParent(buttonsPanel)
+    btn7:setPos(240, 80)
+    
+    -- Button grid container
+    local gridContainer = UILib.Panel:new(940, 250)
+    gridContainer:setParent(buttonsPanel)
+    gridContainer:setPos(20, 150)
+    
+    -- More button tests in a grid
+    local buttonGrid = UILib.Grid:new(940, 250, 4)
+    buttonGrid:setParent(gridContainer)
+    buttonGrid:setPos(0,0)
+    buttonGrid:setLayoutStyle("fullyExpanded")
+    
+    for i = 1, 12 do
+        local btn = UILib.Button:new(80, 30)
+        btn:setText("Btn " .. i)
+        btn.backgroundColor = Color(math.random(50, 200), math.random(50, 200), math.random(50, 200))
+        buttonGrid:addComponent(btn)
+    end
+    
+    -- Tab 2: Checkboxes & Radio Buttons
+    local checksPanel = UILib.Panel:new(0, 0)
+    checksPanel.backgroundColor = Color(40, 40, 40, 200)
+    
+    local checksTab = mainSheet:addSheet("Check & Radio", checksPanel, "icon16/tick.png")
+    
+    -- Checkboxes
+    local check1 = UILib.Checkbox:new("Checkbox 1")
+    check1:setParent(checksPanel)
+    check1:setPos(20, 20)
+    
+    local check2 = UILib.Checkbox:new("Disabled Checkbox")
+    check2:setParent(checksPanel)
+    check2:setPos(20, 60)
+    check2:setEnabled(false)
+    check2:setChecked(true)
+    
+    local check3 = UILib.Checkbox:new("Checkbox with Icon")
+    check3:setIcon("icon16/asterisk_orange.png")
+    check3:setParent(checksPanel)
+    check3:setPos(20, 100)
+    
+    local check4 = UILib.Checkbox:new("Indeterminate")
+    check4:setParent(checksPanel)
+    check4:setPos(20, 140)
+    check4:setIndeterminate(true)
+    
+    function check1:onValueChanged(value, oldValue)
+        print("Checkbox 1:", value, "(was:", oldValue, ")")
+    end
+    
+    -- Radio buttons
+    local radioGroup = "testGroup1"
+    local radio1 = UILib.RadioButton:new("Radio Option 1", radioGroup)
+    radio1:setParent(checksPanel)
+    radio1:setPos(200, 20)
+    
+    local radio2 = UILib.RadioButton:new("Radio Option 2", radioGroup)
+    radio2:setParent(checksPanel)
+    radio2:setPos(200, 60)
+    radio2:setChecked(true)
+    
+    local radio3 = UILib.RadioButton:new("Radio Option 3", radioGroup)
+    radio3:setParent(checksPanel)
+    radio3:setPos(200, 100)
+    
+    function radio1:onValueChanged(value, oldValue)
+        print("Radio 1:", value, "(was:", oldValue, ")")
+    end
+    
+    -- Disabled radio
+    local radio4 = UILib.RadioButton:new("Disabled Radio", "disabledGroup")
+    radio4:setParent(checksPanel)
+    radio4:setPos(200, 140)
+    radio4:setEnabled(false)
+    radio4:setChecked(true)
+    
+    -- Radio with icon
+    local radio5 = UILib.RadioButton:new("Radio with Icon", "group2")
+    radio5:setIcon("icon16/star.png")
+    radio5:setParent(checksPanel)
+    radio5:setPos(200, 180)
+    
+    -- Radio button group in a panel
+    local radioPanel = UILib.Panel:new(200, 200)
+    radioPanel:setParent(checksPanel)
+    radioPanel:setPos(400, 20)
+    radioPanel.backgroundColor = Color(60, 60, 60, 100)
+    
+    local radioGroup2 = "group3"
+    for i = 1, 5 do
+        local radio = UILib.RadioButton:new("Group 3 - Option " .. i, radioGroup2)
+        radio:setParent(radioPanel)
+        radio:setPos(10, 10 + (i-1) * 35)
+    end
+    
+    -- Tab 3: Sliders & Progress Bars
+    local slidersPanel = UILib.Panel:new(0, 0)
+    slidersPanel.backgroundColor = Color(40, 40, 40, 200)
+    
+    local slidersTab = mainSheet:addSheet("Sliders & Progress", slidersPanel, "icon16/chart_bar.png")
+    
+    -- Horizontal slider
+    local slider1 = UILib.Slider:new(20, 20, 400, 30)
+    slider1:setValue(0.5)
+    slider1:setShowValue(true)
+    slider1:setValueFormat("percentage")
+    slider1:setParent(slidersPanel)
+    slider1:setPos(20, 20)
+    
+    -- Vertical slider
+    local slider2 = UILib.Slider:new(450, 20, 30, 200)
+    slider2:setOrientation("vertical")
+    slider2:setValue(0.3)
+    slider2:setShowValue(true)
+    slider2:setParent(slidersPanel)
+    slider2:setPos(450, 20)
+    
+    
+    -- Stepped slider
+    local slider3 = UILib.Slider:new(20, 80, 400, 30)
+    slider3:setValue(0.5)
+    slider3:setStep(0.1)
+    slider3:setShowValue(true)
+    slider3:setValueFormat("value")
+    slider3:setParent(slidersPanel)
+    slider3:setPos(20, 80)
+    
+    
+    -- Slider with custom colors
+    local slider4 = UILib.Slider:new(20, 140, 400, 30)
+    slider4:setValue(0.75)
+    slider4.trackColor = Color(50, 50, 50)
+    slider4.trackProgressColor = Color(255, 100, 100)
+    slider4.thumbColor = Color(255, 200, 100)
+    slider4:setParent(slidersPanel)
+    slider4:setPos(20, 140)
+    
+    
+    -- Progress bars
+    local progress1 = UILib.ProgressBar:new(20, 200, 400, 25)
+    progress1:setValue(0.4)
+    progress1:setShowText(true)
+    progress1:setTextFormat("percentage")
+    progress1:setParent(slidersPanel)
+    progress1:setPos(20, 200)
+    
+    
+    local progress2 = UILib.ProgressBar:new(20, 240, 400, 25)
+    progress2:setValue(0.6)
+    progress2:setShowText(true)
+    progress2:setTextFormat("fraction")
+    progress2:setParent(slidersPanel)
+    progress2:setPos(20, 240)
+    
+    
+    local progress3 = UILib.ProgressBar:new(20, 280, 400, 25)
+    progress3:setValue(0.8)
+    progress3:setShowText(true)
+    progress3:setTextFormat("value")
+    progress3:setParent(slidersPanel)
+    progress3:setPos(20, 280)
+    
+    
+    -- Segmented 
+    local progress4 = UILib.SegmentedProgressBar:new(20, 320, 400, 25, 10)
+    progress4:setValue(0.7)
+    progress4:setShowText(true)
+    progress4:setParent(slidersPanel)
+    progress4:setPos(20, 320)
+    
+    
+    -- Progress bar panel
+    local progressPanel = UILib.Panel:new(400, 150)
+    progressPanel:setParent(slidersPanel)
+    progressPanel:setPos(500, 200)
+    progressPanel.backgroundColor = Color(60, 60, 60, 100)
+    
+    local progress5 = UILib.ProgressBar:new(20, 20, 360, 20)
+    progress5:setValue(0.25)
+    progress5:setShowText(true)
+    progress5:setParent(progressPanel)
+    progress5:setPos(20, 20)
+    
+    
+    local progress6 = UILib.ProgressBar:new(20, 60, 360, 20)
+    progress6:setValue(0.5)
+    progress6:setShowText(true)
+    progress6:setParent(progressPanel)
+    progress6:setPos(20, 60)
+
+    
+    local progress7 = UILib.ProgressBar:new(20, 100, 360, 20)
+    progress7:setValue(0.75)
+    progress7:setShowText(true)
+    progress7:setParent(progressPanel)
+    progress7:setPos(20, 100)
+
+    
+    -- Slider callbacks
+    function slider1:onValueChanged(value)
+        progress1:setValue(value)
+        progress5:setValue(value)
+    end
+    
+    function slider2:onValueChanged(value)
+        progress2:setValue(value)
+        progress6:setValue(value)
+    end
+    
+    function slider3:onValueChanged(value)
+        progress3:setValue(value)
+        progress4:setValue(value)
+        progress7:setValue(value)
+    end
+    
+    -- Tab 4: Dropdowns & Lists
+    local dropdownsPanel = UILib.Panel:new(0, 0)
+    dropdownsPanel:setSize(980, 750)
+    dropdownsPanel.backgroundColor = Color(40, 40, 40, 200)
+    
+    local dropdownsTab = mainSheet:addSheet("Dropdowns", dropdownsPanel, "icon16/arrow_down.png")
+    
+    -- Simple dropdown
+    local dd1 = UILib.Dropdown:new(300, 30)
+    dd1:setParent(dropdownsPanel)
+    dd1:setPos(20, 20)
+    dd1:setText("Select an option")
+    
+    for i = 1, 5 do
+        dd1:addTextOption("Option " .. i)
+    end
+    
+    function dd1:onOptionSelected(index, option, id)
+        print("Selected option:", index)
+    end
+    
+    -- Dropdown with many options
+    local dd2 = UILib.Dropdown:new(300, 30)
+    dd2:setParent(dropdownsPanel)
+    dd2:setPos(350, 20)
+    dd2:setText("Many options")
+    dd2:setMaxVisibleOptions(3)
+    
+    for i = 1, 20 do
+        dd2:addTextOption("Item " .. i)
+    end
+    
+    -- Dropdown with custom option height
+    local dd3 = UILib.Dropdown:new(300, 30)
+    dd3:setParent(dropdownsPanel)
+    dd3:setPos(20, 80)
+    dd3:setText("Tall options")
+    dd3:setOptionHeight(40)
+    
+    for i = 1, 5 do
+        dd3:addTextOption("Tall Option " .. i)
+    end
+    
+    -- Wide dropdown
+    local dd4 = UILib.Dropdown:new(600, 30)
+    dd4:setParent(dropdownsPanel)
+    dd4:setPos(20, 160)
+    dd4:setText("Wide dropdown")
+    
+    for i = 1, 8 do
+        dd4:addTextOption("Sample long long long long long long long long text option " .. i)
+    end
+    
+    -- Dropdown grid
+    local ddContainer = UILib.Panel:new(900, 300)
+    ddContainer:setParent(dropdownsPanel)
+    ddContainer:setPos(20, 240)
+    ddContainer.backgroundColor = Color(60, 60, 60, 100)
+    
+    local ddGrid = UILib.Grid:new(880, 280, 2)
+    ddGrid:setParent(ddContainer)
+    ddGrid:setPos(10, 10)
+    ddGrid:setLayoutStyle("fullyExpanded")
+    
+    for i = 1, 6 do
+        local dd = UILib.Dropdown:new(200, 30)
+        dd:setText("Dropdown " .. i)
+        for j = 1, 5 do
+            dd:addTextOption("Option " .. j)
+        end
+        ddGrid:addComponent(dd)
+    end
+    
+    -- Tab 5: Labels & Icons
+    local labelsPanel = UILib.Panel:new(0, 0)
+    labelsPanel:setSize(980, 750)
+    labelsPanel.backgroundColor = Color(40, 40, 40, 200)
+    
+    local labelsTab = mainSheet:addSheet("Labels & Icons", labelsPanel, "icon16/tag_blue.png")
+    
+    -- Labels
+    local label1 = UILib.Label:new("Simple Label")
+    label1:setParent(labelsPanel)
+    label1:setPos(20, 20)
+    
+    local label2 = UILib.Label:new("Colored Label")
+    label2:setColor(Color(255, 200, 100))
+    label2:setParent(labelsPanel)
+    label2:setPos(20, 50)
+    
+    -- Label with icon (left)
+    local label3 = UILib.Label:new("Icon Left")
+    label3:setIcon("icon16/accept.png", 16, Color(100, 255, 100), "left")
+    label3:setParent(labelsPanel)
+    label3:setPos(20, 90)
+    
+    -- Label with icon (right)
+    local label4 = UILib.Label:new("Icon Right")
+    label4:setIcon("icon16/cancel.png", 16, Color(255, 100, 100), "right")
+    label4:setParent(labelsPanel)
+    label4:setPos(20, 130)
+    
+    -- Label with icon (top)
+    local label5 = UILib.Label:new("Icon Top")
+    label5:setIcon("icon16/information.png", 16, Color(100, 100, 255), "top")
+    label5:setParent(labelsPanel)
+    label5:setPos(20, 180)
+    
+    -- Label with icon (bottom)
+    local label6 = UILib.Label:new("Icon Bottom")
+    label6:setIcon("icon16/help.png", 16, Color(255, 255, 100), "bottom")
+    label6:setParent(labelsPanel)
+    label6:setPos(20, 240)
+    
+    -- Standalone icons
+    local icon1 = UILib.Icon:new(64)
+    icon1:setTexture("hlmv/background")
+    icon1:setParent(labelsPanel)
+    icon1:setPos(200, 20)
+    
+    local icon2 = UILib.Icon:new(64)
+    icon2:setTexture("space/starfield_01")
+    icon2:setParent(labelsPanel)
+    icon2:setPos(280, 20)
+    
+    -- Icon from URL
+    local icon3 = UILib.Icon:new(64)
+    icon3:setTextureURL("https://i.imgur.com/zDAu7Io.png")
+    icon3:setParent(labelsPanel)
+    icon3:setPos(360, 20)
+    
+    -- Icon grid container
+    local iconGridContainer = UILib.Panel:new(600, 300)
+    iconGridContainer:setParent(labelsPanel)
+    iconGridContainer:setPos(200, 100)
+    iconGridContainer.backgroundColor = Color(60, 60, 60, 100)
+    
+    -- Icon grid
+    local iconGrid = UILib.Grid:new(580, 280, 4)
+    iconGrid:setParent(iconGridContainer)
+    iconGrid:setPos(10, 10)
+    iconGrid:setLayoutStyle("fullyExpanded")
+    for i = 1, 12 do
+        local icon = UILib.Icon:new(96)
+        icon:setTexture("hlmv/background")
+        icon.backgroundColor = Color(math.random(50, 150), math.random(50, 150), math.random(50, 150))
+        iconGrid:addComponent(icon)
+    end
+    
+    -- Label grid container
+    local labelGridContainer = UILib.Panel:new(940, 200)
+    labelGridContainer:setParent(labelsPanel)
+    labelGridContainer:setPos(20, 420)
+    labelGridContainer.backgroundColor = Color(60, 60, 60, 100)
+    
+    local labelGrid = UILib.Grid:new(920, 180, 3)
+    labelGrid:setParent(labelGridContainer)
+    labelGrid:setPos(10, 10)
+    labelGrid:setLayoutStyle("fullyExpanded")
+    
+    for i = 1, 9 do
+        local lbl = UILib.Label:new("Label " .. i)
+        lbl:setColor(Color(math.random(150, 255), math.random(150, 255), math.random(150, 255)))
+        labelGrid:addComponent(lbl)
+    end
+    
+    -- Tab 6: Marquee
+    local marqueePanel = UILib.Panel:new(0, 0)
+    marqueePanel:setSize(980, 750)
+    marqueePanel.backgroundColor = Color(40, 40, 40, 200)
+    
+    local marqueeTab = mainSheet:addSheet("Marquee", marqueePanel, "icon16/application_side_expand.png")
+    
+    -- Text marquee (horizontal)
+    local marquee1 = UILib.TextMarquee:new(900, 30)
+    marquee1:setText("Hello from UILib!")
+    marquee1:setSpeed(50)
+    marquee1:setParent(marqueePanel)
+    marquee1:setPos(20, 20)
+    marquee1:setFadeEdges(false)
+    
+    -- Text marquee with fade
+    local marquee2 = UILib.TextMarquee:new(900, 30)
+    marquee2:setText("Marquee with setFadeEdges(true)")
+    marquee2:setSpeed(40)
+    marquee2:setFadeEdges(true)
+    marquee2:setFadeWidth(50)
+    marquee2:setParent(marqueePanel)
+    marquee2:setPos(20, 70)
+    
+    -- Vertical text marquee
+    local marquee3 = UILib.TextMarquee:new(400, 200)
+    marquee3:setText("Vertical scrolling text\nLine 2\nLine 3\nLine 4\nLine 5\nLine 6\nLine 7\nLine 8")
+    marquee3:setDirection("up")
+    marquee3:setSpeed(20)
+    marquee3:setParent(marqueePanel)
+    marquee3:setPos(20, 120)
+    marquee3:setFadeEdges(false)
+    
+    
+    -- Bouncing marquee
+    local marquee4 = UILib.TextMarquee:new(900, 30)
+    marquee4:setText("Bouncing text marquee")
+    marquee4:setBounce(true)
+    marquee4:setSpeed(60)
+    marquee4:setParent(marqueePanel)
+    marquee4:setPos(20, 340)
+    marquee4:setFadeEdges(false)
+    
+    
+    -- Component marquee
+    local compMarquee = UILib.ComponentMarquee:new(900, 80)
+    compMarquee:setSpeed(30)
+    compMarquee:setSpacing(20)
+    compMarquee:setParent(marqueePanel)
+    compMarquee:setPos(20, 390)
+    
+    -- Add buttons to component marquee
+    for i = 1, 10 do
+        local btn = UILib.Button:new(100, 30)
+        btn:setText("Button " .. i)
+        btn.backgroundColor = Color(math.random(50, 200), math.random(50, 200), math.random(50, 200))
+        compMarquee:addComponent(btn)
+    end
+    
+    -- Control panel for marquees
+    local marqueeControl = UILib.Panel:new(900, 200)
+    marqueeControl:setParent(marqueePanel)
+    marqueeControl.backgroundColor = Color(60, 60, 60, 100)
+    marqueeControl:setPos(20, 480)
+    
+    local pauseBtn = UILib.Button:new(100, 30)
+    pauseBtn:setText("Pause All")
+    pauseBtn:setParent(marqueeControl)
+    pauseBtn:setPos(20, 20)
+    
+    local resumeBtn = UILib.Button:new(100, 30)
+    resumeBtn:setText("Resume All")
+    resumeBtn:setParent(marqueeControl)
+    resumeBtn:setPos(140, 20)
+    
+    function pauseBtn:onClick()
+        marquee1:setPaused(true)
+        marquee2:setPaused(true)
+        marquee3:setPaused(true)
+        marquee4:setPaused(true)
+        compMarquee:setPaused(true)
+    end
+    
+    function resumeBtn:onClick()
+        marquee1:setPaused(false)
+        marquee2:setPaused(false)
+        marquee3:setPaused(false)
+        marquee4:setPaused(false)
+        compMarquee:setPaused(false)
+    end
+    
+    -- Speed control
+    local speedLabel = UILib.Label:new("Speed:")
+    speedLabel:setParent(marqueeControl)
+    speedLabel:setPos(20, 70)
+    
+    local speedSlider = UILib.Slider:new(0,0, 200, 20)
+    speedSlider:setValue(1)
+    speedSlider:setRange(0,2)
+    speedSlider:setShowValue(true)
+    speedSlider:setParent(marqueeControl)
+    speedSlider:setPos(20, 90)
+    
+    function speedSlider:onValueChanged(value)
+        local speed = value * 100
+        marquee1:setSpeed(speed)
+        marquee2:setSpeed(speed * 0.8)
+        marquee3:setSpeed(speed * 0.4)
+        marquee4:setSpeed(speed * 1.2)
+        compMarquee:setSpeed(speed * 0.6)
+    end
+    
+    -- Tab 7: Grid & Layout
+    local gridPanel = UILib.Panel:new(0, 0)
+    gridPanel:setSize(980, 750)
+    gridPanel.backgroundColor = Color(40, 40, 40, 200)
+    
+    local gridTab = mainSheet:addSheet("Grid Layout", gridPanel, "icon16/table.png")
+    
+    -- Container
+    local gridContainer = UILib.Panel:new(940, 720)
+    gridContainer:setParent(gridPanel)
+    gridContainer:setPos(20, 20)
+    gridContainer.backgroundColor = Color(60, 60, 60, 150)
+    gridContainer:setScrollable(true)
+    
+    -- Flow layout grid
+    local flowLabel = UILib.Label:new("Flow Layout (3 columns):")
+    flowLabel:setParent(gridContainer)
+    flowLabel:setPos(10, 10)
+    
+    local flowGrid = UILib.Grid:new(900, 80, 3)
+    flowGrid:setLayoutStyle("flow")
+    flowGrid:setParent(gridContainer)
+    flowGrid:setPos(10, 40)
+    
+    for i = 1, 12 do
+        local btn = UILib.Button:new(math.random(60, 120), math.random(20, 40))
+        btn:setText("Item " .. i)
+        flowGrid:addComponent(btn)
+    end
+    
+    -- Aligned layout grid
+    local alignedLabel = UILib.Label:new("Aligned Layout (2 columns):")
+    alignedLabel:setParent(gridContainer)
+    alignedLabel:setPos(10, 140)
+    
+    local alignedGrid = UILib.Grid:new(900, 120, 2)
+    alignedGrid:setLayoutStyle("aligned")
+    alignedGrid:setParent(gridContainer)
+    alignedGrid:setPos(10, 170)
+    
+    for i = 1, 8 do
+        local btn = UILib.Button:new(math.random(80, 150), math.random(30, 50))
+        btn:setText("Button " .. i)
+        alignedGrid:addComponent(btn)
+    end
+    
+    -- Centered layout grid
+    local centeredLabel = UILib.Label:new("Centered Layout (4 columns):")
+    centeredLabel:setParent(gridContainer)
+    centeredLabel:setPos(10, 310)
+    
+    local centeredGrid = UILib.Grid:new(900, 100, 4)
+    centeredGrid:setLayoutStyle("centered")
+    centeredGrid:setParent(gridContainer)
+    centeredGrid:setPos(10, 340)
+    
+    for i = 1, 12 do
+        local btn = UILib.Button:new(60, 30)
+        btn:setText("Btn " .. i)
+        centeredGrid:addComponent(btn)
+    end
+    
+    -- Expanded layout grid
+    local expandedLabel = UILib.Label:new("Expanded Layout (3 columns):")
+    expandedLabel:setParent(gridContainer)
+    expandedLabel:setPos(10, 460)
+    
+    local expandedGrid = UILib.Grid:new(900, 100, 3)
+    expandedGrid:setLayoutStyle("expanded")
+    expandedGrid:setParent(gridContainer)
+    expandedGrid:setPos(10, 490)
+    
+    for i = 1, 9 do
+        local btn = UILib.Button:new(50, 30)
+        btn:setText("Exp " .. i)
+        expandedGrid:addComponent(btn)
+    end
+    
+    -- Tab 8: Terminal
+    local terminalPanel = UILib.Panel:new(0, 0)
+    terminalPanel:setSize(980, 750)
+    terminalPanel.backgroundColor = Color(20, 20, 20, 200)
+    
+    local terminalTab = mainSheet:addSheet("Terminal", terminalPanel, "icon16/application_xp_terminal.png")
+    
+    local terminal = UILib.Terminal:new(0, 0, 50, 20)
+    terminal:setParent(terminalPanel)
+    terminal:setSize(960, 730)
+    terminal:setPos(10, 10)
+    
+    -- Welcome message
+    terminal:setInputMode(false)
+    terminal:printLine("=== UILib Terminal Test ===")
+    terminal:printLine("Type 'help' for available commands")
+    terminal:printLine("Type 'test' to test custom command")
+    terminal:printLine("Type 'testcolors' or 'testrgb' to test ANSI colors")
+    terminal:printLine("")
+    -- Enable input mode for user input
+    terminal:setInputMode(true)
+    
+    -- Add custom command
+    terminal:registerCommand("test", "Test command", function(args)
+        terminal:printLine("Test command executed!")
+        terminal:printLine("Args: " .. table.concat(args, ", "))
+    end)
+    
+    -- Terminal control panel
+    local termControl = UILib.Panel:new(300, 100)
+    termControl:setParent(terminalPanel)
+    termControl.backgroundColor = Color(60, 60, 60, 100)
+    termControl:setPos(650, 10)
+    
+    local clearBtn = UILib.Button:new(120, 30)
+    clearBtn:setText("Clear Terminal")
+    clearBtn:setParent(termControl)
+    clearBtn:setPos(10, 10)
+    
+    function clearBtn:onClick()
+        terminal:clear()
+        terminal:setInputMode(false)
+        terminal:printLine("Terminal cleared!")
+        terminal:printLine("")
+        terminal:setInputMode(true)
+    end
+    
+    local colorsBtn = UILib.Button:new(120, 30)
+    colorsBtn:setText("Test Colors")
+    colorsBtn:setParent(termControl)
+    colorsBtn:setPos(140, 10)
+    
+    -- Printing with ANSI escape sequences
+    function colorsBtn:onClick()
+        terminal:setInputMode(false)
+        terminal:print("\x1b[31mRed ")
+        terminal:print("\x1b[32mGreen ")
+        terminal:print("\x1b[33mYellow ")
+        terminal:print("\x1b[34mBlue ")
+        terminal:print("\x1b[35mMagenta ")
+        terminal:print("\x1b[36mCyan ")
+        terminal:print("\x1b[0mReset")
+        terminal:printLine("")
+        terminal:setInputMode(true)
+    end
+    
+    -- Tab 9: Windows & Panels
+    local windowsPanel = UILib.Panel:new(0, 0)
+    windowsPanel:setSize(980, 750)
+    windowsPanel.backgroundColor = Color(40, 40, 40, 200)
+    
+    local windowsTab = mainSheet:addSheet("Windows & Panels", windowsPanel, "icon16/application.png")
+    
+    -- Create draggable window
+    local windowBtn = UILib.Button:new(150, 40)
+    windowBtn:setText("Open Window")
+    windowBtn:setParent(windowsPanel)
+    windowBtn:setPos(20, 20)
+    
+    local testWindow = nil
+    
+    function windowBtn:onClick()
+        if testWindow and not testWindow.destroyed then
+            testWindow:destroy()
+            testWindow = nil
+            self:setText("Open Window")
+        else
+            testWindow = UILib.Window:new(300, 200)
+            testWindow:setText("Test Window")
+            testWindow:setDraggable(true)
+            testWindow:setPos(200, 100)
+            
+            local content = UILib.Label:new("This is a draggable window")
+            content:setParent(testWindow)
+            content:setPos(10, 10)
+            
+            local closeBtn = UILib.Button:new(80, 30)
+            closeBtn:setText("Close")
+            closeBtn:setParent(testWindow)
+            closeBtn:setPos(110, 100)
+            
+            function closeBtn:onClick()
+                testWindow:destroy()
+                testWindow = nil
+                windowBtn:setText("Open Window")
+            end
+            
+            self:setText("Close Window")
+        end
+    end
+    
+    -- Scrollable panel demo
+    local scrollBtn = UILib.Button:new(150, 40)
+    scrollBtn:setText("Toggle Scroll Panel")
+    scrollBtn:setParent(windowsPanel)
+    scrollBtn:setPos(200, 20)
+    
+    local scrollPanel = nil
+    
+    function scrollBtn:onClick()
+        if scrollPanel and not scrollPanel.destroyed then
+            scrollPanel:destroy()
+            scrollPanel = nil
+            self:setText("Toggle Scroll Panel")
+        else
+            scrollPanel = UILib.Panel:new(300, 200)
+            scrollPanel:setScrollable(true)
+            scrollPanel:setParent(windowsPanel)
+            scrollPanel:setPos(200, 80)
+            scrollPanel.backgroundColor = Color(60, 60, 60, 150)
+            
+            -- Add many labels to make it scroll
+            for i = 1, 20 do
+                local label = UILib.Label:new("Scrollable Item " .. i)
+                label:setParent(scrollPanel)
+                label:setPos(10, 10 + (i - 1) * 25)
+                label.textColor = Color(math.random(150, 255), math.random(150, 255), math.random(150, 255))
+            end
+            
+            self:setText("Close Panel")
+        end
+    end
+    
+    -- Nested panels
+    local nestedPanel = UILib.Panel:new(300, 400)
+    nestedPanel:setParent(windowsPanel)
+    nestedPanel:setPos(500, 100)
+    nestedPanel.backgroundColor = Color(80, 40, 40, 150)
+    
+    local innerPanel1 = UILib.Panel:new(120, 120)
+    innerPanel1:setParent(nestedPanel)
+    innerPanel1:setPos(20, 20)
+    innerPanel1.backgroundColor = Color(40, 80, 40, 150)
+    
+    local innerPanel2 = UILib.Panel:new(120, 120)
+    innerPanel2:setParent(nestedPanel)
+    innerPanel2:setPos(160, 20)
+    innerPanel2.backgroundColor = Color(40, 40, 80, 150)
+    
+    local innerLabel1 = UILib.Label:new("Inner Panel 1")
+    innerLabel1:setParent(innerPanel1)
+    innerLabel1:setPos(10, 10)
+    
+    local innerLabel2 = UILib.Label:new("Inner Panel 2")
+    innerLabel2:setParent(innerPanel2)
+    innerLabel2:setPos(10, 10)
+    
+    -- Panel with disabled bottom rounded corners
+    local roundPanel = UILib.Panel:new(200, 150)
+    roundPanel:setParent(windowsPanel)
+    roundPanel:setPos(20, 300)
+    roundPanel.backgroundColor = Color(100, 80, 60, 150)
+    roundPanel.cornerRadius = 30
+    roundPanel:setRoundCorners({top_left = true, top_right = true, bottom_left = false, bottom_right = false})
+    
+    local roundLabel = UILib.Label:new("Disabled bottom rounded corners")
+    roundLabel:setParent(roundPanel)
+    roundLabel:setPos(10, 10)
+    
+    -- Tab 10: Performance
+    local perfPanel = UILib.Panel:new(0, 0)
+    perfPanel:setSize(980, 750)
+    perfPanel.backgroundColor = Color(40, 40, 40, 200)
+    
+    local perfTab = mainSheet:addSheet("Performance", perfPanel, "icon16/time.png")
+    
+    local perfLabel = UILib.Label:new("Create many components")
+    perfLabel:setParent(perfPanel)
+    perfLabel:setPos(20, 20)
+    
+    local countLabel = UILib.Label:new("Components: 0")
+    countLabel:setParent(perfPanel)
+    countLabel:setPos(20, 50)
+    
+    local perfContainer = UILib.Panel:new(600, 400)
+    perfContainer:setParent(perfPanel)
+    perfContainer:setPos(20, 80)
+    perfContainer:setScrollable(true)
+    perfContainer.backgroundColor = Color(30, 30, 30, 100)
+    
+    local componentCount = 0
+    local components = {}
+    
+    -- Add component button
+    local addBtn = UILib.Button:new(150, 40)
+    addBtn:setText("Add 10 Buttons")
+    addBtn:setParent(perfPanel)
+    addBtn:setPos(650, 80)
+    
+    function addBtn:onClick()
+        for i = 1, 10 do
+            local btn = UILib.Button:new(80, 25)
+            btn:setText("Btn " .. (componentCount + i))
+            btn.backgroundColor = Color(math.random(50, 200), math.random(50, 200), math.random(50, 200))
+            btn:setParent(perfContainer)
+            btn:setPos(10, 10 + componentCount * 30 + (i - 1) * 30)
+            table.insert(components, btn)
+        end
+        componentCount = componentCount + 10
+        countLabel:setText("Components: " .. componentCount)
+    end
+    
+    -- Add many components button
+    local addManyBtn = UILib.Button:new(150, 40)
+    addManyBtn:setText("Add 50 Buttons")
+    addManyBtn:setParent(perfPanel)
+    addManyBtn:setPos(650, 130)
+    
+    function addManyBtn:onClick()
+        for i = 1, 50 do
+            local btn = UILib.Button:new(70, 20)
+            btn:setText((componentCount + i))
+            btn.backgroundColor = Color(math.random(50, 200), math.random(50, 200), math.random(50, 200))
+            btn:setParent(perfContainer)
+            btn:setPos(10 + math.random(0, 50), 10 + componentCount * 25 + (i - 1) * 25)
+            table.insert(components, btn)
+        end
+        componentCount = componentCount + 50
+        countLabel:setText("Components: " .. componentCount)
+    end
+    
+    -- Clear components button
+    local clearBtn = UILib.Button:new(150, 40)
+    clearBtn:setText("Clear All")
+    clearBtn:setParent(perfPanel)
+    clearBtn:setPos(650, 180)
+    
+    function clearBtn:onClick()
+        for _, comp in ipairs(components) do
+            if comp and not comp.destroyed then
+                comp:destroy()
+            end
+        end
+        components = {}
+        componentCount = 0
+        countLabel:setText("Components: " .. componentCount)
+    end
+    
+    -- Stats
+    local statsLabel = UILib.Label:new("Stats:")
+    statsLabel:setParent(perfPanel)
+    statsLabel:setPos(650, 240)
+    
+    local cpuLabel = UILib.Label:new("CPU: --%")
+    cpuLabel:setParent(perfPanel)
+    cpuLabel:setPos(650, 270)
+    
+    local ramLabel = UILib.Label:new("Lua RAM: -- MB")
+    ramLabel:setParent(perfPanel)
+    ramLabel:setPos(650, 300)
+    
+    -- Skin select
+    local skinLabel = UILib.Label:new("Skin (expect crash):")
+    skinLabel:setParent(perfPanel)
+    skinLabel:setPos(650, 320)
+    
+    local skinSelector = UILib.Dropdown:new(200, 30)
+    skinSelector:setParent(perfPanel)
+    skinSelector:setPos(700, 340)
+    
+    for skinName, _ in pairs(UILib.Skins) do
+        skinSelector:addTextOption(skinName, skinName)
+    end
+    
+    skinSelector:selectOption(1)
+    
+    function skinSelector:onOptionSelected(idx, option, skinName)
+        UILib.rootComponents = {}
+        UILib.components = {}
+        print(#UILib.knownMaterials)
+        
+        UILib.destroyRenderTargets()
+        UILib.destroyMaterials()
+        UILib.setSkin(skinName)
+        print(#UILib.knownMaterials)
+
+        updateGlobalStats = createStatsWindow()
+        updatePerfStats = createUITests()
+    end
+    
+    -- Debug toggle
+    local debugCheck = UILib.Checkbox:new("Draw outlines")
+    debugCheck:setIcon("icon16/bug.png")
+    debugCheck:setParent(perfPanel)
+    debugCheck:setPos(650, 400)
+    
+    function debugCheck:onValueChanged(value)
+        UILib.Debug.drawComponentOutlines = value
+    end
+    
+    -- FPS counter
+    local fpsLabel = UILib.Label:new("FPS: --")
+    fpsLabel:setParent(perfPanel)
+    fpsLabel:setPos(650, 450)
+    
+    mainSheet:setPos(12, 12)
+    
+    -- Stats updater
+    local function updatePerfStats()
+        local quota = chip():getQuotaAverage()
+        local ram = ramUsed()
+        
+        if cpuLabel and not cpuLabel.destroyed then
+            cpuLabel:setText(string.format("CPU: %.2f%%", quota / quotaPerc))
+        end
+        
+        if ramLabel and not ramLabel.destroyed then
+            ramLabel:setText(string.format("Lua RAM: %.2f MB", ram / 1024))
+        end
+    end
+    
+    return updatePerfStats
+end
+
+-- Separate stats window
+function createStatsWindow()
+    local statsWindow = UILib.Window:new(220, 120)
+    statsWindow:setDraggable(true)
+    statsWindow:setText("Performance Stats")
+    statsWindow:setPos(800, 850)
+    
+    local cpuLabel = UILib.Label:new("CPU: --%")
+    local ramLabel = UILib.Label:new("Lua RAM: -- MB")
+    local fpsLabel = UILib.Label:new("FPS: --")
+    
+    cpuLabel:setParent(statsWindow)
+    ramLabel:setParent(statsWindow)
+    fpsLabel:setParent(statsWindow)
+    cpuLabel:setPos(10, 10)
+    ramLabel:setPos(10, 30)
+    fpsLabel:setPos(10, 50)
+    
+    -- FPS 
+    local lastTime = timer.systime()
+    local frameCount = 0
+    local fps = 0
+    
+    local function updateStats()
+        local quota = chip():getQuotaAverage()
+        local ram = ramUsed()
+        
+        if cpuLabel and not cpuLabel.destroyed then
+            cpuLabel:setText(string.format("CPU: %.2f%%", quota / quotaPerc))
+        end
+        
+        if ramLabel and not ramLabel.destroyed then
+            ramLabel:setText(string.format("Lua RAM: %.2f MB", ram / 1024))
+        end
+        
+        -- FPS
+        frameCount = frameCount + 1
+        local currentTime = timer.systime()
+        if currentTime - lastTime >= 1 then
+            fps = frameCount
+            frameCount = 0
+            lastTime = currentTime
+            
+            if fpsLabel and not fpsLabel.destroyed then
+                fpsLabel:setText("FPS: " .. fps)
+            end
+        end
+    end
+    
+    return updateStats
+end
+
+-- Init
+updateGlobalStats = createStatsWindow()
+updatePerfStats = createUITests()
+
+-- Main render hook
+hook.add('Render', 'UILib_Test_Render', function()
+    UILib.handleMouseEvents()
+    updateGlobalStats()
+    if updatePerfStats then
+        updatePerfStats()
+    end
+    UILib.drawRT(rtName) -- render.enableScissorRect does not work properly when drawing on screen directly, so we using RT as workaround
+    
+    -- Draw to screen
+    render.setMaterial(mat)
+    render.drawTexturedRect(0, 0, 512, 512)
+end)
+
+-- Control lock for text input
+-- Library will start to capture keyboard input when controls is locked
+-- Currently used for Terminal
+hook.add("StarfallUsed", "", function(ply, ent)
+    if ply ~= player() then return end
+    
+    if not render.isHUDActive() then
+        if not hasPermission("enablehud") or not hasPermission("input") then
+            print(Color(255, 50, 50), "HUD and input permissions required")
+            setupPermissionRequest({"enablehud", "input"}, "UILib needs HUD and input permissions for keyboard input", true)
+            return
+        end
+        enableHud(player(), true)
+    end
+    
+    local isLocked = input.isControlLocked()
+    if isLocked then
+        input.lockControls(false)
+        print("Input unlocked")
+    else
+        if not input.canLockControls() then
+            print(Color(255, 50, 50), "Wait a few seconds and try again")
+            return
+        end
+        input.lockControls(true)
+        print("Input locked")
+    end
+end)
+
+if player() == owner() then
+    enableHud(owner(), true)
+end
+
