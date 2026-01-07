@@ -81,7 +81,10 @@ end
 ---@private
 function UILib.Button:_draw()
     local bgColor = self.backgroundColor
-    local textColor = self.textColor
+    local borderColor = self.borderColor
+    if self.isHovered then
+        bgColor = self.backgroundHoverColor
+    end
     
     if self.togglable and self.toggled then
         if self.toggledBackgroundColor then
@@ -91,17 +94,24 @@ function UILib.Button:_draw()
         end
         
         if self.toggledTextColor then
-            textColor = self.toggledTextColor
         end
-    elseif self.isPressed then
+    elseif self.isPressed and self.enabled then
         bgColor = self.backgroundPressedColor or bgColor
+        borderColor = self.borderPressedColor or borderColor
     end
     
+    --[[
     if textColor ~= self.label.textColor then
         self.label.textColor = textColor
     end
-    
-    render.setColor(self.borderColor)
+    ]]
+
+    if not self.enabled then
+        bgColor = Color(bgColor.r * 0.5, bgColor.g * 0.5, bgColor.b * 0.5, bgColor.a * 0.5)
+        borderColor = Color(borderColor.r * 0.5, borderColor.g * 0.5, borderColor.b * 0.5, borderColor.a * 0.5)
+    end
+
+    render.setColor(borderColor)
     if self.borderWidth then
         render.drawRoundedBoxEx(self.cornerRadius, self.x, self.y, self.w, self.h, self.roundedCorners.top_left, self.roundedCorners.top_right, self.roundedCorners.bottom_left, self.roundedCorners.bottom_right)
     else
@@ -126,6 +136,9 @@ end
 ---@param state boolean
 function UILib.Button:setEnabled(state)
     self.enabled = state
+    if self.label then
+        self.label:setColor(enabled and UILib.Skin.Button.textColor or Color(128, 128, 128))
+    end
 end
 
 ---Sets an Icon
@@ -190,21 +203,22 @@ function UILib.Button:setToggledColors(background, text)
 end
 
 ---Called when button was clicked
-function UILib.Button:onClick(ply)
+function UILib.Button:_onClick(ply)
+    if not self.enabled then return false end
     if self.togglable then
         self:toggle(true)
     end
-    return false
+    return self:onClick(ply)
 end
 
-function UILib.Button:onMouseReleased()
+function UILib.Button:_onMouseReleased(x, y, button)
     if not self.enabled then return false end
-    return true
+    return self:onMouseReleased(x, y, button)
 end
 
-function UILib.Button:onMousePressed()
+function UILib.Button:_onMousePressed(x, y, button)
     if not self.enabled then return false end
-    return true
+    return self:onMousePressed(x, y, button)
 end
 
 function UILib.Button:onToggle(state) end

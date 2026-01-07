@@ -576,7 +576,7 @@ function UILib.handleMouseEvents()
     UILib.InputHandler.lastMouseX = mouseX
     UILib.InputHandler.lastMouseY = mouseY
     
-    //UILib.handleMouseHover(mouseX, mouseY) //TODO
+    -- UILib.handleMouseHover(mouseX, mouseY) -- TODO
     
     UILib.handleMouseButtons(mouseX, mouseY)
 end
@@ -992,17 +992,17 @@ end
 
 function UILib.handleMouseHover(mouseX, mouseY)
     local hoveredComponent = UILib.getComponentAt(mouseX, mouseY)
-    
+
     if UILib.InputHandler.hoveredComponent and UILib.InputHandler.hoveredComponent ~= hoveredComponent then
-        if UILib.InputHandler.hoveredComponent.onMouseLeave then
-            UILib.InputHandler.hoveredComponent:_onMouseLeave(mouseX, mouseY)
-        end
+        hoveredComponent.isHovered = false
+        debugprint("left ", hoveredComponent)
+        UILib.InputHandler.hoveredComponent:_onMouseLeave(mouseX, mouseY)
     end
     
     if hoveredComponent and hoveredComponent ~= UILib.InputHandler.hoveredComponent then
-        if hoveredComponent.onMouseEnter then
-            hoveredComponent:_onMouseEnter(mouseX, mouseY)
-        end
+        hoveredComponent.isHovered = true
+        debugprint("enter ", hoveredComponent)
+        hoveredComponent:_onMouseEnter(mouseX, mouseY)
     end
     
     if hoveredComponent and hoveredComponent.onMouseHover then
@@ -1231,6 +1231,7 @@ function UILib.Component:initialize(x, y, w, h, clickable, screen)
     self.constrainToScreen = true
     self.visible = true
     self.isPressed = false
+    self.isHovered = false
     self.destroyed = false
     self.drawChildren = nil
     
