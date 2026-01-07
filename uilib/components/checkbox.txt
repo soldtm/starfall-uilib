@@ -166,21 +166,21 @@ function UILib.Checkbox:onMouseLeave(x, y)
 end
 
 function UILib.Checkbox:onMousePressed(x, y, button)
-    if not self.enabled or button ~= MOUSE.MOUSE2 then return false end
+    if not self.enabled then return false end
     
     self.isPressed = true
     return true
 end
 
 function UILib.Checkbox:onMouseReleased(x, y, button)
-    if not self.enabled or button ~= MOUSE.MOUSE2 then return false end
+    if not self.enabled then return false end
     
     self:toggle(true)
     self.isPressed = false
     return true
 end
 
-function UILib.Checkbox:onClick(ply)
+function UILib.Checkbox:_onClick(ply)
     return true
 end
 

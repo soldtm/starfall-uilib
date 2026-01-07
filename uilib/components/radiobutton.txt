@@ -163,14 +163,14 @@ function UILib.RadioButton:onMouseLeave(x, y)
 end
 
 function UILib.RadioButton:onMousePressed(x, y, button)
-    if not self.enabled or button ~= MOUSE.MOUSE2 then return false end
+    if not self.enabled then return false end
     
     self.isPressed = true
     return true
 end
 
 function UILib.RadioButton:onMouseReleased(x, y, button)
-    if not self.enabled or button ~= MOUSE.MOUSE2 then return false end
+    if not self.enabled then return false end
     
     if not self.checked then
         self:setChecked(true, true)

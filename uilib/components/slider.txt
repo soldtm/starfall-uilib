@@ -303,7 +303,6 @@ function UILib.Slider:getValueText(normalizedValue)
 end
 
 function UILib.Slider:onMousePressed(x, y, button)
-    if button ~= MOUSE.MOUSE2 then return false end 
     
     local thumbPos = self:getThumbPosition(self:getNormalizedValue())
     local thumbRect = {
