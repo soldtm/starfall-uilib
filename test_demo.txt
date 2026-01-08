@@ -303,7 +303,7 @@ function createUITests()
 
     
     local progress7 = UILib.ProgressBar:new(progressPanel)
-    progress6:setSize(360, 20)
+    progress7:setSize(360, 20)
     progress7:setValue(0.75)
     progress7:setShowText(true)
     progress7:setPos(20, 100)
