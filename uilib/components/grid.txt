@@ -19,9 +19,9 @@ local math = math
 ---@class UILib.Grid: UILib.Component
 UILib.Grid = class("Grid", UILib.Component)
 
-function UILib.Grid:initialize(w, h, cols)
-    UILib.Component.initialize(self, 0, 0, w, h, true, screen)
-    self.cols = cols or 3
+function UILib.Grid:initialize(parent, screen)
+    UILib.Component.initialize(self, 0, 0, 128, 128, true, parent, screen)
+    self.cols = 3
     self.clippingEnabled = true
     self.gap = 4
     self.autoArrange = true
@@ -57,6 +57,10 @@ function UILib.Grid:onChildDestroyed(component)
     end
 end
 
+function UILib.Grid:setCols(num)
+    self.cols = num
+    self:arrangeChildren()
+end
 
 function UILib.Grid:arrangeChildren()
     if not self.children or #self.children == 0 then return end

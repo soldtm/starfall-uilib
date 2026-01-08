@@ -27,12 +27,11 @@ local render = render
 ---@field protected iconPosition string | nil
 UILib.Label = class("Label", UILib.Component)
 
-function UILib.Label:initialize(text, screen)
+function UILib.Label:initialize(parent, screen)
     self.font = UILib.Skin.Label.font
     self.color = UILib.Skin.Label.textColor
 
-    UILib.Component.initialize(self, 0,0, w,h, false, screen)
-    
+    UILib.Component.initialize(self, 0,0, 0, 0, false, parent, screen)
     -- Icon properties
     self.icon = nil
     self.iconMaterial = nil
@@ -41,7 +40,7 @@ function UILib.Label:initialize(text, screen)
     self.iconPadding = 4
     self.iconPosition = "left"
     
-    self:setText(text)
+    self:setText("Label")
 end
 
 ---Sets font

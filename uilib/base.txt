@@ -1209,9 +1209,9 @@ UILib.Component = class("Component")
 
 -- TODO skin
 
-function UILib.Component:initialize(x, y, w, h, clickable, screen)
-    self.x = x  or 0
-    self.y = y  or 0
+function UILib.Component:initialize(x, y, w, h, clickable, parent, screen)
+    self.x = x or 0
+    self.y = y or 0
     self.relX = x
     self.relY = y
     self.w = w or 1
@@ -1253,6 +1253,10 @@ function UILib.Component:initialize(x, y, w, h, clickable, screen)
 
     table.insert(UILib.components, self)
     table.insert(UILib.rootComponents, self)
+
+    if parent then
+        self:setParent(parent)
+    end
 end
 
 ---Reloads skin parameters

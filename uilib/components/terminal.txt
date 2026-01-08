@@ -22,7 +22,7 @@ local IS_LINUX = os.isLinux()
 ---@class UILib.Terminal: UILib.Component
 UILib.Terminal = class("Terminal", UILib.Component)
 
-function UILib.Terminal:initialize(x, y, cols, rows, screen)
+function UILib.Terminal:initialize(parent, cols, rows, screen)
     self.terminalFont = UILib.Skin.TerminalLine.font
     
     render.setFont(self.terminalFont)
@@ -42,7 +42,7 @@ function UILib.Terminal:initialize(x, y, cols, rows, screen)
     local width = self.cols * self.cellWidth
     local height = self.rows * self.cellHeight
     
-    UILib.Component.initialize(self, x, y, width, height, true, screen)
+    UILib.Component.initialize(self, x, y, width, height, true, parent, screen)
     self:updateVisibleCellSize()
         
     self.cursorX = 1

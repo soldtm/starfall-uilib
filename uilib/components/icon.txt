@@ -22,9 +22,9 @@ local render = render
 ---@class UILib.Icon: UILib.Component
 UILib.Icon = class("Icon", UILib.Component)
 
-function UILib.Icon:initialize(size, screen)
-    self.size = size or UILib.Skin.Icon.size    
-    UILib.Component.initialize(self, 0, 0, size, size, false, screen)
+function UILib.Icon:initialize(parent, screen)
+    self.size = 32 
+    UILib.Component.initialize(self, 0, 0, self.size, self.size, false, parent, screen)
     
     self.material = nil
 end

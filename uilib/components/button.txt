@@ -32,13 +32,12 @@ local render = render
 ---@field protected toggledText string | nil
 UILib.Button = class("Button", UILib.Component)
 
-function UILib.Button:initialize(w,h, screen)
-    UILib.Component.initialize(self, 0,0, w,h, true, screen)
-    self.text = "Button"
-    ---@type UILib.Label
-    self.label = UILib.Label:new(self.text, screen)
+function UILib.Button:initialize(parent, screen)
+    UILib.Component.initialize(self, 0, 0, 48, 16, true, parent, screen)
 
-    self.label:setParent(self)
+    self.text = "Button"
+    self.label = UILib.Label:new(self, screen)
+
     self.label.propagateInput = true
     
     self:setText(self.text)

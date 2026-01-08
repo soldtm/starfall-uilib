@@ -22,8 +22,8 @@ local render = render
 ---@class UILib.Panel: UILib.Component
 UILib.Panel = class("Panel", UILib.Component)
 
-function UILib.Panel:initialize(w, h, screen)
-    UILib.Component.initialize(self, 6, 6, w, h, true, screen)
+function UILib.Panel:initialize(parent, screen)
+    UILib.Component.initialize(self, 0, 0, 128, 128, true, parent, screen)
     self.scrollable = false
     self.scrollX = 0
     self.scrollY = 0

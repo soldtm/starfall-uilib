@@ -27,9 +27,9 @@ local render = render
 ---@class UILib.Checkbox: UILib.Component
 UILib.Checkbox = class("Checkbox", UILib.Component)
 
-function UILib.Checkbox:initialize(text, screen)
+function UILib.Checkbox:initialize(parent, screen)
     self.size = UILib.Skin.Checkbox.size
-    UILib.Component.initialize(self, 0, 0, self.size, self.size, true, screen)
+    UILib.Component.initialize(self, 0, 0, self.size, self.size, true, parent, screen)
     
     self.checked = false
     self.indeterminate = false
@@ -47,9 +47,9 @@ function UILib.Checkbox:initialize(text, screen)
     
     self.isHovered = false
     self.isPressed = false
-    
-    self.label = UILib.Label:new(text, screen)
-    self.label:setParent(self)
+    self.text = "Checkbox"
+    self.label = UILib.Label:new(self, screen)
+    self.label:setText(self.text)
     self.label:setColor(UILib.Skin.Checkbox.textColor)
     self.label:setFont(UILib.Skin.Checkbox.font)
     

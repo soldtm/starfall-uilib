@@ -31,15 +31,16 @@ local render = render
 ---@class UILib.Window: UILib.Component
 UILib.Window = class("Window", UILib.Component)
 
-function UILib.Window:initialize(w,h, screen)
-    UILib.Component.initialize(self, 6,6, w,h, true, screen)
+function UILib.Window:initialize(parent, screen)
+    UILib.Component.initialize(self, 0,0, 128, 128, true, parent, screen)
 
     self.label = nil
     self.showCloseButton = true
     self.panelTopHeight = UILib.Skin.Window.panelTopHeight
     self.panelTopPad = UILib.Skin.Window.panelTopPad
     
-    self.closeButton = UILib.Button:new(self.panelTopHeight, self.panelTopHeight)
+    self.closeButton = UILib.Button:new()
+    self.closeButton:setSize(self.panelTopHeight, self.panelTopHeight)
     self.closeButton:setText("X")
     self.closeButton:setParent(self, true)
     self.closeButton:setPos(self.w - self.closeButton.w, 0, false, true)
@@ -111,7 +112,8 @@ end
 
 function UILib.Window:setText(text)
     if not self.label then
-        self.label = UILib.Label:new(text, screen)
+        self.label = UILib.Label:new(self, screen)
+        self.label:setText(text)
         self.label:setFont(self.panelTopFont)
         self.label:setParent(self, true)
         self.label:setPos(self.panelTopPad, self.panelTopPad, false, true)

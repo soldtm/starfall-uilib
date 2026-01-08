@@ -22,8 +22,8 @@ local render = render
 ---@class UILib.Marquee: UILib.Component
 UILib.Marquee = class("Marquee", UILib.Component)
 
-function UILib.Marquee:initialize(w, h, screen)
-    UILib.Component.initialize(self, 0, 0, w, h, false, screen)
+function UILib.Marquee:initialize(parent, screen)
+    UILib.Component.initialize(self, 0, 0, 100, 20, false, parent, screen)
     
     self.speed = UILib.Skin.Marquee.speed
     self.direction = UILib.Skin.Marquee.direction

@@ -26,8 +26,8 @@ local render = render
 ---@class UILib.PropertySheet: UILib.Component
 UILib.PropertySheet = class("PropertySheet", UILib.Component)
 
-function UILib.PropertySheet:initialize(x, y, w, h, screen)
-    UILib.Component.initialize(self, x, y, w, h, true, screen)
+function UILib.PropertySheet:initialize(parent, screen)
+    UILib.Component.initialize(self, 0,0 , 200, 200, true, parent, screen)
     
     self.sheets = {}
     self.currentSheetIndex = nil
@@ -50,14 +50,14 @@ function UILib.PropertySheet:initialize(x, y, w, h, screen)
     self.tabBorderWidth = UILib.Skin.PropertySheet.tabBorderWidth
     self.headerFont = UILib.Skin.PropertySheet.headerFont
     self.borderColor = UILib.Skin.PropertySheet.borderColor
-    self.tabBar = UILib.Panel:new(w, self.tabHeight, screen)
-    self.tabBar:setParent(self)
+    self.tabBar = UILib.Panel:new(self, screen)
+    self.tabBar:setSize(self.w, self.tabHeight)
     self.tabBar:setPos(0, 0)
     self.tabBar:setClickable(true)
     self.tabBar.backgroundColor = Color(0, 0, 0, 0)
     
-    self.contentPanel = UILib.Panel:new(w, h - self.tabHeight, screen)
-    self.contentPanel:setParent(self)
+    self.contentPanel = UILib.Panel:new(self, screen)
+    self.contentPanel:setSize(self.w, self.h - self.tabHeight)
     self.contentPanel:setPos(0, self.tabHeight)
     self.contentPanel.backgroundColor = self.contentBackgroundColor
     self.padding = UILib.Skin.PropertySheet.padding or 0
@@ -115,8 +115,9 @@ function UILib.PropertySheet:addSheet(title, component, icon)
 end
 
 function UILib.PropertySheet:createTabButton(index, title)
-    local tabButton = UILib.Button:new(0, self.tabHeight, self.screen)
+    local tabButton = UILib.Button:new(self.tabBar, self.screen)
     tabButton:setParent(self.tabBar)
+    tabButton:setPos(0, self.tabHeight)
     tabButton:setText(title)
     
     tabButton.backgroundColor = self.tabBackgroundColor
@@ -326,8 +327,9 @@ function UILib.PropertySheet:getSheetIndex()
 end
 
 function UILib.PropertySheet:addTextSheet(title, text)
-    local panel = UILib.Panel:new(0, 0, self.screen)
-    local label = UILib.Label:new(text, self.screen)
+    local panel = UILib.Panel:new(self, self.screen)
+    local label = UILib.Label:new(self, self.screen)
+    label:setText(text)
     label:setParent(panel)
     label:setAlignment(UILib.Alignment.MIDDLE)
     return self:addSheet(title, panel)

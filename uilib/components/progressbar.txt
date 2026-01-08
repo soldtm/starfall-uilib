@@ -22,9 +22,8 @@ local render = render
 ---@class UILib.ProgressBar: UILib.Component
 UILib.ProgressBar = class("ProgressBar", UILib.Component)
 
-function UILib.ProgressBar:initialize(x, y, w, h, screen)
-    UILib.Component.initialize(self, x, y, w, h, false, screen)
-    
+function UILib.ProgressBar:initialize(parent, screen)
+    UILib.Component.initialize(self, 0, 0, 100, 10, false, parent, screen)
 
     self.value = 0.0 
     self.minValue = 0.0
@@ -245,10 +244,10 @@ end
 ---@class UILib.SegmentedProgressBar: UILib.ProgressBar
 UILib.SegmentedProgressBar = class("SegmentedProgressBar", UILib.ProgressBar)
 
-function UILib.SegmentedProgressBar:initialize(x, y, w, h, segmentCount, screen)
-    UILib.ProgressBar.initialize(self, x, y, w, h, screen)
-    
-    self.segmentCount = segmentCount or 10
+function UILib.SegmentedProgressBar:initialize(parent, screen)
+    UILib.ProgressBar.initialize(self, parent, screen)
+    self:setSize(100, 10)
+    self.segmentCount = 10
     self.segmentSpacing = UILib.Skin.SegmentedProgressBar.segmentGap or 2
     self.segmentColors = {}
     

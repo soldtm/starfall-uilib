@@ -22,8 +22,8 @@ local render = render
 ---@class UILib.Slider: UILib.Component
 UILib.Slider = class("Slider", UILib.Component)
 
-function UILib.Slider:initialize(x, y, w, h, screen)
-    UILib.Component.initialize(self, x, y, w, h, true, screen)
+function UILib.Slider:initialize(parent, screen)
+    UILib.Component.initialize(self, 0, 0, 100, 10, true, parent, screen)
     
     self.value = 0.5 
     self.minValue = 0.0

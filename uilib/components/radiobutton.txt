@@ -23,13 +23,13 @@ Radio Button
 ---@class UILib.RadioButton: UILib.Component
 UILib.RadioButton = class("RadioButton", UILib.Component)
 
-function UILib.RadioButton:initialize(text, group, screen)
+function UILib.RadioButton:initialize(parent, screen)
     self.size = UILib.Skin.RadioButton.size
-    UILib.Component.initialize(self, 0, 0, self.size, self.size, true, screen)
+    UILib.Component.initialize(self, 0, 0, self.size, self.size, true, parent, screen)
     
     self.checked = false
     self.enabled = true
-    self.group = group or "default"
+    self.group = "default"
     
     if not UILib.RadioButton.groups then
         UILib.RadioButton.groups = {}
@@ -52,8 +52,8 @@ function UILib.RadioButton:initialize(text, group, screen)
     self.isHovered = false
     self.isPressed = false
     
-    self.label = UILib.Label:new(text, screen)
-    self.label:setParent(self)
+    self.label = UILib.Label:new(self, screen)
+    self.label:setText("Radio button")
     self.label:setColor(self.textColor)
     self.label:setFont(UILib.Skin.RadioButton.font)
     
