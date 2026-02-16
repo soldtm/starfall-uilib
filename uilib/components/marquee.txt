@@ -174,7 +174,7 @@ function UILib.Marquee:_draw()
         render.drawRect(self.x, self.y, self.w, self.h)
     end
     
-    render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)
+    UILib.ScissorRect:push(self.x, self.y, self.x + self.w, self.y + self.h)
     
     if self.fadeEdges then
         self:drawWithFadeEdges()
@@ -182,7 +182,7 @@ function UILib.Marquee:_draw()
         self:drawContent()
     end
     
-    render.disableScissorRect()
+    UILib.ScissorRect:pop()
 end
 
 function UILib.Marquee:drawWithFadeEdges()
@@ -569,9 +569,10 @@ function UILib.ComponentMarquee:drawHorizontalComponents()
             
             if componentX + instance.w >= self.x and componentX <= self.x + self.w then
                 instance:setPos(componentX, componentY, true)
-                render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)
+                UILib.ScissorRect:push(self.x, self.y, self.x + self.w, self.y + self.h)
                 
                 instance:__draw()
+                UILib.ScissorRect:pop()
             end
             
             currentX = currentX + instance.w + self.spacing
@@ -592,8 +593,9 @@ function UILib.ComponentMarquee:drawHorizontalComponents()
                     
                     if componentX + instance.w >= self.x and componentX <= self.x + self.w then
                         instance:setPos(componentX, componentY, true)
-                        render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)                
+                        UILib.ScissorRect:push(self.x, self.y, self.x + self.w, self.y + self.h)
                         instance:__draw()
+                        UILib.ScissorRect:pop()
                     end
                     
                     currentX = currentX + instance.w + self.spacing
@@ -613,8 +615,9 @@ function UILib.ComponentMarquee:drawVerticalComponents()
             
             if componentY + instance.h >= self.y and componentY <= self.y + self.h then
                 instance:setPos(componentX, componentY, true)
-                render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)                
+                UILib.ScissorRect:push(self.x, self.y, self.x + self.w, self.y + self.h)
                 instance:__draw()
+                UILib.ScissorRect:pop()
             end
             
             currentY = currentY + instance.h + self.spacing
@@ -635,8 +638,10 @@ function UILib.ComponentMarquee:drawVerticalComponents()
                     
                     if componentY + instance.h >= self.y and componentY <= self.y + self.h then
                         instance:setPos(componentX, componentY, true)
-                        render.enableScissorRect(self.x, self.y, self.x + self.w, self.y + self.h)                                
+                        
+                        UILib.ScissorRect:push(self.x, self.y, self.x + self.w, self.y + self.h)                                
                         instance:__draw()
+                        UILib.ScissorRect:pop()
                     end
                     
                     currentY = currentY + instance.h + self.spacing

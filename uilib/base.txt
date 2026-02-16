@@ -14,6 +14,8 @@ end
 
 UILib = {}
 UILib.components = {}
+UILib.ScissorRect = {}
+UILib.ScissorRect.stack = {}
 UILib.rootComponents = {}
 UILib.pk = 0
 UILib.screenWidth = 512 --sf screen default //TODO
@@ -1086,6 +1088,7 @@ end
 
 ---Draws everything
 function UILib.draw()
+    UILib.ScissorRect:clear()
     local screen = render.getScreenEntity()
     
     for k, component in ipairs(UILib.rootComponents) do
@@ -1175,6 +1178,56 @@ UILib.Dock = {
     TOP = 4,
     BOTTOM = 5
 }
+
+--- Pushes a new enableScissorRect values to the top
+---@param x1 number left
+---@param y1 number top
+---@param x2 number right
+---@param y2 number bottom
+function UILib.ScissorRect:push(x1, y1, x2, y2)
+    local current = self:current()
+    if current then
+        x1 = math.max(x1, current.x1)
+        y1 = math.max(y1, current.y1)
+        x2 = math.min(x2, current.x2)
+        y2 = math.min(y2, current.y2)
+    end
+
+    table.insert(self.stack, {x1 = x1, y1 = y1, x2 = x2, y2 = y2})
+
+    if x2 <= x1 or y2 <= y1 then
+        render.disableScissorRect()   -- empty
+    else
+        render.enableScissorRect(x1, y1, x2, y2)
+    end
+end
+
+--- Pops the top scissor rect and restores the previous one
+function UILib.ScissorRect:pop()
+    table.remove(self.stack)
+    local current = self:current()
+    if current then
+        if current.x2 <= current.x1 or current.y2 <= current.y1 then
+            render.disableScissorRect()
+        else
+            render.enableScissorRect(current.x1, current.y1, current.x2, current.y2)
+        end
+    else
+        render.disableScissorRect()
+    end
+end
+
+--- Returns the current scissor rect values
+function UILib.ScissorRect:current()
+    return self.stack[#self.stack]
+end
+
+--- Clears the stack and disables scissor rect
+function UILib.ScissorRect:clear()
+    self.stack = {}
+    render.disableScissorRect()
+end
+
 
 --[[                         
    ___                                  _   
@@ -1401,7 +1454,7 @@ function UILib.Component:__draw()
     if not self.visible then return end
     
     if self.clippingEnabled and render.isInRenderTarget() then
-        render.enableScissorRect(self.x, self.y, self.x+self.w, self.y+self.h)
+        UILib.ScissorRect:push(self.x, self.y, self.x + self.w, self.y + self.h)
     end
 
     self:preDraw()
@@ -1414,17 +1467,13 @@ function UILib.Component:__draw()
     else
         for _, child in ipairs(self.children) do
             if not child:isInRenderBounds() then continue end
-            
-            if self.clippingEnabled and render.isInRenderTarget() then 
-                render.enableScissorRect(self.x, self.y, self.x+self.w, self.y+self.h)
-            end
             child:__draw()
             render.setColor(Color(255,255,255,255))
         end
     end
 
     if self.clippingEnabled then
-        render.disableScissorRect()
+        UILib.ScissorRect:pop() 
     end
     render.setColor(Color(255,255,255,255))
     

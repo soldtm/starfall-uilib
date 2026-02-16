@@ -914,8 +914,8 @@ function UILib.Terminal:_draw()
     local realWidth =  self.w+self.rtExtraWidth
     render.setColor(Color(255, 255, 255, 255))
     render.setMaterial(self.mat)
-    if not IS_LINUX then -- broken on Linux for some reason
-        render.enableScissorRect(self.x, self.y, self.x+self.w, self.y+self.h)
+    if not IS_LINUX then -- broken on Linux for some reason --TODO?
+        UILib.ScissorRect:push(self.x, self.y, self.x+self.w, self.y+self.h)
     end
     render.drawTexturedRect(self.x, self.y, realWidth, realWidth)
     
@@ -937,6 +937,11 @@ function UILib.Terminal:_draw()
     if self.selectionStart and self.selectionEnd then
         self:drawSelection()
     end
+
+    if not IS_LINUX then -- broken on Linux for some reason --TODO?
+        UILib.ScissorRect:pop()
+    end
+
 end
 
 function UILib.Terminal:drawSelection()
