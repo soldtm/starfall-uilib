@@ -1,5 +1,4 @@
 Finish multiscreen support
-Name skin properties same as component properties
 Listbox component
 Docking? (like derma)
 Drawer component
@@ -9,6 +8,4 @@ Tooltips?
 Fix dropdown component options (size)
 Dropdown apply layout on option change (text shifted)
 Minify files?
-Skin properties for colors of disabled components
-Rework skin layout?
-Move color related checks out of render
+Rework skin layout? > Skin properties for colors of disabled components > Move color related checks out of render
