@@ -29,7 +29,7 @@ UILib.Label = class("Label", UILib.Component)
 
 function UILib.Label:initialize(parent, screen)
     self.font = UILib.Skin.Label.font
-    self.color = UILib.Skin.Label.textColor
+    self.textColor = UILib.Skin.Label.textColor
 
     UILib.Component.initialize(self, 0,0, 0, 0, false, parent, screen)
     -- Icon properties
@@ -53,7 +53,7 @@ end
 ---Sets color
 ---@param clr Color
 function UILib.Label:setColor(clr)
-    self.color = clr
+    self.textColor = clr
 end
 
 ---@private
@@ -79,7 +79,7 @@ function UILib.Label:_draw()
     end
     
     if self.font then render.setFont(self.font) end
-    if self.color then render.setColor(self.color) end
+    if self.textColor then render.setColor(self.textColor) end
     render.drawSimpleText(currentX, currentY, self.text)
 end
 

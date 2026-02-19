@@ -106,8 +106,8 @@ function UILib.Button:_draw()
     ]]
 
     if not self.enabled then
-        bgColor = Color(bgColor.r * 0.5, bgColor.g * 0.5, bgColor.b * 0.5, bgColor.a * 0.5)
-        borderColor = Color(borderColor.r * 0.5, borderColor.g * 0.5, borderColor.b * 0.5, borderColor.a * 0.5)
+        bgColor = Color(bgColor.r * 0.5, bgColor.g * 0.5, bgColor.b * 0.5, bgColor.a * 0.5) --TODO
+        borderColor = Color(borderColor.r * 0.5, borderColor.g * 0.5, borderColor.b * 0.5, borderColor.a * 0.5) 
     end
 
     render.setColor(borderColor)
