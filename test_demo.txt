@@ -400,6 +400,33 @@ function createUITests()
         end
         ddGrid:addComponent(dd)
     end
+
+    --ListView
+    local listLabel = UILib.Label:new(dropdownsPanel)
+    listLabel:setText("ListView:")
+    listLabel:setPos(20, 430)
+
+    local listView = UILib.ListView:new(dropdownsPanel)
+    listView:setSize(900, 250)
+    listView:setPos(20, 460)
+    listView:setMultiSelect(true)
+
+    listView:addColumn("ID")
+    listView:addColumn("Player Name")
+    listView:addColumn("Ping")
+    listView:addColumn("Is alive?")
+    
+    for k, ply in pairs(find.allPlayers()) do
+        listView:addLine(ply:entIndex(), ply:getName(), ply:getPing(), ply:isAlive() and "Yes" or "No")
+    end
+
+    function listView:onRowSelected(id, line)
+        print("Selected Row:", id, "| Player:", line:getValue(2))
+    end
+    
+    function listView:onRowRightClick(id, line)
+        print("Right-clicked Row:", id)
+    end
     
     -- Tab 5: Labels & Icons
     local labelsPanel = UILib.Panel:new()
@@ -842,8 +869,8 @@ function createUITests()
     
     -- Nested panels
     local nestedPanel = UILib.Panel:new(windowsPanel)
-    nestedPanel:setSize(300, 400)
-    nestedPanel:setPos(500, 100)
+    nestedPanel:setSize(300, 160)
+    nestedPanel:setPos(500, 500)
     nestedPanel.backgroundColor = Color(80, 40, 40, 150)
     
     local innerPanel1 = UILib.Panel:new(nestedPanel)
@@ -875,7 +902,7 @@ function createUITests()
     local roundLabel = UILib.Label:new(roundPanel)
     roundLabel:setText("Disabled bottom rounded corners")
     roundLabel:setPos(10, 10)
-    
+
     -- Tab 10: Performance
     local perfPanel = UILib.Panel:new()
     perfPanel:setSize(980, 750)

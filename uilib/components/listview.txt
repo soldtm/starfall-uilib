@@ -1,0 +1,375 @@
+--@name UILib ListView
+--@author soldnotsold
+--@client
+--@include uilib/components/panel.txt
+--@include uilib/components/label.txt
+--@include uilib/components/button.txt
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+
+if not UILib.Panel then require("uilib/components/panel.txt") end
+if not UILib.Label then require("uilib/components/label.txt") end
+if not UILib.Button then require("uilib/components/button.txt") end
+
+local table = table
+local math = math
+local render = render
+
+--[[
+ListViewLine
+--]]
+
+---@class UILib.ListViewLine: UILib.Component
+UILib.ListViewLine = class("ListViewLine", UILib.Component)
+
+function UILib.ListViewLine:initialize(listView, index, ...)
+    self.listView = listView
+    self.index = index
+    self.values = {...}
+    self.columns = {}
+    self.selected = false
+
+    local w = listView.w - (listView.canvas.maxScrollY > 0 and listView.canvas.scrollbarSize or 0)
+    UILib.Component.initialize(self, 0, 0, w, listView.dataHeight, true, listView.canvas, listView.screen)
+
+    -- TODO SKIN
+    self.backgroundColor = UILib.Skin.ListView.itemBackgroundColor or Color(60, 60, 60)
+    self.selectedColor = UILib.Skin.ListView.itemSelectedColor or Color(100, 150, 200)
+    self.hoverColor = UILib.Skin.ListView.itemHoverColor or Color(80, 80, 80)
+    self.borderColor = UILib.Skin.ListView.borderColor or Color(40, 40, 40)
+    self.borderWidth = UILib.Skin.ListView.borderWidth or 0
+    self.cornerRadius = UILib.Skin.ListView.cornerRadius or 0
+
+    for i, val in ipairs(self.values) do
+        local label = UILib.Label:new(self, listView.canvas)
+        label:setText(tostring(val))
+        label:setFont(listView.font)
+        label:setColor(listView.textColor)
+        label.clippingEnabled = true 
+        self.columns[i] = label
+    end
+end
+
+function UILib.ListViewLine:getValue(colIndex)
+    return self.values[colIndex]
+end
+
+function UILib.ListViewLine:getSortValue(colIndex)
+    return self.values[colIndex]
+end
+
+function UILib.ListViewLine:getColumnText(colIndex)
+	if !self.columns[colIndex] then return "" end
+
+	return self.columns[colIndex].name
+end
+
+function UILib.ListViewLine:setValue(colIndex, val)
+    self.values[colIndex] = val
+    if self.columns[colIndex] then
+        self.columns[colIndex]:setText(tostring(val))
+    end
+end
+
+function UILib.ListViewLine:setSelected(state)
+    if self.selected == state then return end
+    self.selected = state
+    local color = state and (self.listView.selectedTextColor or self.listView.textColor) or self.listView.textColor
+    for _, label in pairs(self.columns) do
+        label:setColor(color)
+    end
+end
+
+function UILib.ListViewLine:_draw()
+    local bgColor = self.backgroundColor
+    if self.selected then
+        bgColor = self.selectedColor
+    elseif self.isHovered then
+        bgColor = self.hoverColor
+    end
+
+    render.setColor(bgColor)
+    if self.cornerRadius > 0 then
+        render.drawRoundedBox(self.cornerRadius, self.x, self.y, self.w, self.h)
+    else
+        render.drawRectFast(self.x, self.y, self.w, self.h)
+    end
+
+    if self.borderWidth > 0 then
+        render.setColor(self.borderColor)
+        render.drawRectOutline(self.x, self.y, self.w, self.h, self.borderWidth)
+    end
+end
+
+
+function UILib.ListViewLine:onMousePressed(x, y, button)
+    if button == MOUSE.MOUSE1 then
+        self.listView:onItemClicked(self, input.isKeyDown(KEY.LCONTROL) or input.isKeyDown(KEY.RCONTROL), input.isKeyDown(KEY.LSHIFT) or input.isKeyDown(KEY.RSHIFT))
+        return true
+    elseif button == MOUSE.MOUSE2 then
+        if self.listView.onRowRightClick then
+            self.listView:onRowRightClick(self.index, self)
+        end
+        return true
+    end
+    return false
+end
+
+--[[
+ListViewColumn
+--]]
+
+---@class UILib.ListViewColumn: UILib.Button
+UILib.ListViewColumn = class("ListViewColumn", UILib.Button)
+
+function UILib.ListViewColumn:initialize(listView, index, name)
+    self.listView = listView
+    self.index = index
+    self.sortDesc = false
+    UILib.Button.initialize(self, listView.headerContainer, listView.screen)
+    self:setText(name)
+    self.name = name
+    self.cornerRadius = 0
+    self.margin = 0
+end
+
+function UILib.ListViewColumn:onClick()
+    if self.listView.sortable then
+        self.listView:sortByColumn(self.index, self.sortDesc)
+        self.sortDesc = not self.sortDesc
+    end
+end
+
+--[[
+ListView
+--]]
+
+---@class UILib.ListView: UILib.Panel
+UILib.ListView = class("ListView", UILib.Panel)
+
+function UILib.ListView:initialize(parent, screen)
+    UILib.Panel.initialize(self, parent, screen)
+    
+    self:setScrollable(false)
+    self.clippingEnabled = true
+
+    self.textColor = UILib.Skin.ListView.textColor or Color(220, 220, 220)
+    self.selectedTextColor = UILib.Skin.ListView.selectedTextColor or Color(255, 255, 255)
+    self.font = UILib.Skin.ListView.font or UILib.Skin.Component.font
+    
+    self.headerHeight = 24
+    self.dataHeight = UILib.Skin.ListView.itemHeight or 24
+    self.multiSelect = false
+    self.sortable = true
+    self.lastSelectedIndex = 0
+
+    self.headerContainer = UILib.Panel:new(self, screen)
+    self.headerContainer:setPos(0, 0)
+    self.headerContainer.backgroundColor = Color(30, 30, 30)
+
+    self.canvas = UILib.Panel:new(self, screen)
+    self.canvas:setScrollable(true)
+    self.canvas:enableClipping(true)
+    self.canvas.backgroundColor = Color(0, 0, 0, 0)
+
+    self.columns = {}
+    self.lines = {}
+    self.nextLineID = 1
+    
+    self.onRowSelected = nil
+    self.onRowRightClick = nil
+
+    self:updateLayout()
+end
+
+function UILib.ListView:addColumn(name)
+    local index = #self.columns + 1
+    local col = UILib.ListViewColumn:new(self, index, name)
+    table.insert(self.columns, col)
+    self:layoutColumns()
+    return col
+end
+
+function UILib.ListView:addLine(...)
+    local nextID = #self.lines + 1
+    print(nextID)
+    local line = UILib.ListViewLine:new(self, nextID, ...)
+    table.insert(self.lines, line)
+    self.canvas:addComponent(line)
+    
+    self:layoutLines()
+    return line
+end
+
+function UILib.ListView:removeLine(index)
+    if not self.lines[index] then return end
+    self.lines[index]:destroy()
+    table.remove(self.lines, index)
+    
+    for i, line in ipairs(self.lines) do
+        line.index = i
+    end
+    self:layoutLines()
+end
+
+function UILib.ListView:getLine(index)
+    return self.lines[index]
+end
+
+function UILib.ListView:getLines()
+    return self.lines
+end
+
+function UILib.ListView:clear()
+    for _, line in ipairs(self.lines) do
+        if not line.destroyed then line:destroy() end
+    end
+    self.lines = {}
+    self.lastSelectedIndex = 0
+    self.canvas:setScrollY(0)
+    self:layoutLines()
+end
+function UILib.ListView:clearSelection()
+    for _, line in ipairs(self.lines) do
+        line:setSelected(false)
+    end
+end
+
+function UILib.ListView:getSelected()
+    local selected = {}
+    for _, line in ipairs(self.lines) do
+        if line.selected then table.insert(selected, line) end
+    end
+    return selected
+end
+
+function UILib.ListView:selectFirstItem()
+    self:clearSelection()
+    if #self.lines > 0 then
+        self.lines[1]:setSelected(true)
+        if self.onRowSelected then self:onRowSelected(1, self.lines[1]) end
+    end
+end
+
+function UILib.ListView:setMultiSelect(state)
+    self.multiSelect = state
+end
+
+function UILib.ListView:setSortable(state)
+    self.sortable = state
+end
+
+function UILib.ListView:setHeaderHeight(h)
+    self.headerHeight = h
+    self:updateLayout()
+end
+
+function UILib.ListView:setDataHeight(h)
+    self.dataHeight = h
+    self:layoutLines()
+end
+
+function UILib.ListView:sortByColumn(colIndex, desc)
+    if #self.lines < 2 then return end
+    
+    desc = desc == true
+    
+    table.sort(self.lines, function(a, b)
+		if desc then
+			a, b = b, a
+		end
+
+		local aval = a:getSortValue( colIndex ) || a:getColumnText( colIndex )
+		local bval = b:getSortValue( colIndex ) || b:getColumnText( colIndex )
+
+		if ( isnumber( aval ) && isnumber( bval ) ) then return aval < bval end
+
+		return tostring( aval ) < tostring( bval )
+    end)
+    
+    for i, line in ipairs(self.lines) do
+        line.index = i
+    end
+    
+    self:layoutLines()
+end
+
+function UILib.ListView:onItemClicked(line, ctrl, shift)
+    if not self.multiSelect then
+        self:clearSelection()
+        line:setSelected(true)
+        self.lastSelectedIndex = line.index
+    else
+        if shift and self.lastSelectedIndex > 0 then
+            local startIdx = math.min(self.lastSelectedIndex, line.index)
+            local endIdx = math.max(self.lastSelectedIndex, line.index)
+            
+            if not ctrl then self:clearSelection() end
+            
+            for i = startIdx, endIdx do
+                if self.lines[i] then
+                    self.lines[i]:setSelected(true)
+                end
+            end
+        elseif ctrl then
+            line:setSelected(not line.selected)
+            self.lastSelectedIndex = line.index
+        else
+            self:clearSelection()
+            line:setSelected(true)
+            self.lastSelectedIndex = line.index
+        end
+    end
+
+    if line.selected and self.onRowSelected then
+        self:onRowSelected(line.index, line)
+    end
+end
+
+function UILib.ListView:updateLayout()
+    self.headerContainer:setSize(self.w, self.headerHeight)
+    self.canvas:setPos(0, self.headerHeight)
+    self.canvas:setSize(self.w, self.h - self.headerHeight)
+    self:layoutColumns()
+end
+
+function UILib.ListView:setSize(w, h)
+    UILib.Panel.setSize(self, w, h)
+    self:updateLayout()
+end
+
+function UILib.ListView:layoutColumns()
+    if #self.columns == 0 then return end
+
+    local colWidth = self.w / #self.columns
+    for i, col in ipairs(self.columns) do
+        col:setPos((i - 1) * colWidth, 0)
+        col:setSize(colWidth, self.headerHeight)
+    end
+    self:layoutLines()
+end
+
+function UILib.ListView:layoutLines()
+    local colWidth = #self.columns > 0 and (self.w / #self.columns) or self.w
+    local scrollbarOffset = self.canvas.maxScrollY > 0 and self.canvas.scrollbarSize or 0
+    local lineW = self.canvas.w - scrollbarOffset
+
+    for i, line in ipairs(self.lines) do
+        line:setPos(0, (i - 1) * self.dataHeight)
+        line:setSize(lineW, self.dataHeight)
+        line.originalRelX = nil
+        line.originalRelY = nil
+
+        for colIdx, label in pairs(line.columns) do
+            local lx = (colIdx - 1) * colWidth + 5
+            local ly = (self.dataHeight - label.h) / 2
+            label:setPos(lx, ly)
+            label:setSize(colWidth - 10, label.h)
+        end
+    end
+
+    self.canvas:updateScrollBounds()
+    self.canvas:applyScroll()
+end

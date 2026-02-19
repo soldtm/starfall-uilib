@@ -220,6 +220,18 @@ ModernSkin.TextMarquee = {
     spacing = 0
 }
 
-
+ModernSkin.ListView = {
+    itemHeight = 24,
+    itemBackgroundColor = Color(60, 60, 60),
+    itemSelectedColor = Color(100, 150, 200),
+    itemHoverColor = Color(80, 80, 80),
+    textColor = Color(220, 220, 220),
+    selectedTextColor = Color(255, 255, 255),
+    font = ModernSkin.Label.font,
+    allowEmptySelection = false,
+    borderWidth = 1,
+    borderColor = Color(40, 40, 40),
+    cornerRadius = 2
+}
 
 return ModernSkin
