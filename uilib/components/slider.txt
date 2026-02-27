@@ -257,36 +257,52 @@ end
 
 function UILib.Slider:getProgressRect(normalizedValue)
     local trackRect = self:getTrackRect()
-    
+    local thumbPos = self:getThumbPosition(normalizedValue)
+    local thumbRadius = self.thumbRadius
+
     if self.orientation == "horizontal" then
+        local rightEdge = thumbPos.x + thumbRadius
+        local progressWidth = rightEdge - trackRect.x
+        if progressWidth < 0 then progressWidth = 0 end
         return {
             x = trackRect.x,
             y = trackRect.y,
-            w = trackRect.w * normalizedValue,
+            w = progressWidth,
             h = trackRect.h
         }
     else
+        local bottomY = trackRect.y + trackRect.h
+        local topEdge = thumbPos.y - thumbRadius
+        local progressHeight = bottomY - topEdge
+        if progressHeight < 0 then progressHeight = 0 end
         return {
             x = trackRect.x,
-            y = trackRect.y + trackRect.h * (1 - normalizedValue),
+            y = topEdge,
             w = trackRect.w,
-            h = trackRect.h * normalizedValue
+            h = progressHeight
         }
     end
 end
 
 function UILib.Slider:getThumbPosition(normalizedValue)
     local trackRect = self:getTrackRect()
-    
+    local thumbRadius = self.thumbRadius
+
     if self.orientation == "horizontal" then
+        local minX = trackRect.x + thumbRadius
+        local maxX = trackRect.x + trackRect.w - thumbRadius
+        local x = minX + (maxX - minX) * normalizedValue
         return {
-            x = trackRect.x + trackRect.w * normalizedValue,
+            x = x,
             y = trackRect.y + trackRect.h / 2
         }
-    else
+    else 
+        local minY = trackRect.y + thumbRadius
+        local maxY = trackRect.y + trackRect.h - thumbRadius
+        local y = maxY - (maxY - minY) * normalizedValue
         return {
             x = trackRect.x + trackRect.w / 2,
-            y = trackRect.y + trackRect.h * (1 - normalizedValue)
+            y = y
         }
     end
 end
@@ -381,14 +397,26 @@ end
 
 function UILib.Slider:setValueFromMousePosition(x, y, triggerCallback)
     local trackRect = self:getTrackRect()
+    local thumbRadius = self.thumbRadius
     local normalizedValue
-    
     if self.orientation == "horizontal" then
-        normalizedValue = (x - trackRect.x) / trackRect.w
+        local minX = trackRect.x + thumbRadius
+        local maxX = trackRect.x + trackRect.w - thumbRadius
+        if maxX <= minX then
+            normalizedValue = 0.5
+        else
+            normalizedValue = (x - minX) / (maxX - minX)
+        end
     else
-        normalizedValue = 1 - (y - trackRect.y) / trackRect.h
+        local minY = trackRect.y + thumbRadius
+        local maxY = trackRect.y + trackRect.h - thumbRadius
+        if maxY <= minY then
+            normalizedValue = 0.5
+        else
+            normalizedValue = 1 - (y - minY) / (maxY - minY)
+        end
     end
-    
+
     normalizedValue = math.max(0, math.min(1, normalizedValue))
     self:setNormalizedValue(normalizedValue, triggerCallback)
 end
