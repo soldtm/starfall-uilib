@@ -39,12 +39,15 @@ local oldCreateMaterial = material.create
 local oldCreateMaterialFromImage = material.createFromImage
 
 function render.createRenderTarget(name)
-    table.insert(UILib.knownRenderTargets, name)
-    return oldCreateRenderTarget(name)
+    if render.renderTargetExists(name) then
+        debugprint("RT "..name.." is already exists")
+        return
+    end
+    table.insert(UILib.knownRenderTargets, name)    
+    oldCreateRenderTarget(name)
 end
 
 function render.destroyRenderTarget(name)
-    UILib.knownRenderTargets[name] = nil
     table.removeByValue(UILib.knownRenderTargets, name)
     return oldDestroyRenderTarget(name)    
 end
@@ -560,19 +563,22 @@ end
 
 function UILib.handleMouseEvents()
     local screen = render.getScreenEntity()
-    
-    if not screen then return end
-    
-    local player = player() 
-    local mouseX, mouseY = render.cursorPos(player, screen)
-    if not mouseX then return end
-    if not isValid(screen) then return end
-    local mod = UILib.InputHandler.cursorPosModifiers[screen:entIndex()]
-    if not mod and UILib.InputHandler.cursorPosModifiers[0] then
-        mod = UILib.InputHandler.cursorPosModifiers[0]
-    end
-    if mod then
-        mouseX, mouseY = mod(mouseX, mouseY)
+    local mouseX, mouseY
+    if screen then
+        local player = player() 
+        mouseX, mouseY = render.cursorPos(player, screen)
+        if not mouseX then return end
+        if not isValid(screen) then return end
+        local mod = UILib.InputHandler.cursorPosModifiers[screen:entIndex()]
+        if not mod and UILib.InputHandler.cursorPosModifiers[0] then
+            mod = UILib.InputHandler.cursorPosModifiers[0]
+        end
+        if mod then
+            mouseX, mouseY = mod(mouseX, mouseY)
+        end
+    else -- in HUD?
+        mouseX, mouseY = input.getCursorPos()
+        if not mouseX then return end
     end
     
     UILib.InputHandler.lastMouseX = mouseX
@@ -913,8 +919,7 @@ local function findComponentAtRecursive(component, x, y)
 
     if component.clippingEnabled then
         local absX, absY = component:getAbsolutePos()
-        if x < absX or x > absX + component.w or 
-            y < absY or y > absY + component.h then
+        if x < absX or x > absX + component.w or y < absY or y > absY + component.h then
             return nil
         end
     end
@@ -1589,6 +1594,13 @@ function UILib.Component:getAbsolutePos()
     else
         return self.x, self.y
     end
+end
+
+---Converts global position to local (relative to component)
+---@param x integer global x
+---@param y integer global y
+function UILib.Component:posToLocal(x, y)
+    return x - self.x, y - self.y
 end
 
 ---Sets width

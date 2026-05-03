@@ -340,7 +340,6 @@ function UILib.Panel:addComponent(component)
         self:applyScroll()
     end
 end
-
 function UILib.Panel:removeComponent(component)
     for i, child in ipairs(self.children) do
         if child.id == component.id then
@@ -349,10 +348,34 @@ function UILib.Panel:removeComponent(component)
             break
         end
     end
-    if self.scrollable then
+    if #self.children > 0 and self.scrollable then
         self:updateScrollBounds()
+    elseif #self.children == 0 then
+        self.maxScrollX = 0
+        self.maxScrollY = 0
     end
 end
+
+function UILib.Panel:destroyAllChildren() 
+    if not self.children then return end
+    
+    for i = #self.children, 1, -1 do
+        local child = self.children[i]
+        if child and child.destroy then
+            child:destroy()
+        end
+        if child.arrangeChildren and child.arrangeChildren == true then
+            for _, grandchild in ipairs(child.children or {}) do
+                if grandchild and grandchild.destroy then
+                    grandchild:destroy()
+                end
+            end
+        end
+    end
+    
+    self.children = {}
+end
+
 
 function UILib.Panel:setPos(x, y, absolute)
     UILib.Component.setPos(self, x, y, absolute)

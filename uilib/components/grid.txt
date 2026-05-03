@@ -290,13 +290,19 @@ function UILib.Grid:addComponent(component)
     if not self.children then return end
 
     component:setParent(self)
-    local maxY = 0
-    local y = 0
-    for k, child in pairs(self.children) do
-        y = child.y+child.h
-        if y > maxY then maxY = y end
+    local maxX, maxY = 0, 0
+    local x = 0
+    for k, child in ipairs(self.children) do
+        if child.w > maxX then maxX = child.w end
+        if child.y + child.h > maxY then maxY = child.y + child.h end
+        if child.x + child.w > x then x = child.x + child.w end
     end
-    if maxY > self.y + self.h then self.h = maxY-self.y end
+    
+    if x >= self.w and #self.children > 0 then
+        self.w = x + self.gap
+    elseif maxY > self.y + self.h and #self.children > 0 then
+        self.h = maxY - self.y
+    end
     
     if self.autoArrange then
         self:arrangeChildren()
