@@ -1,0 +1,114 @@
+--@name UILib RGBPicker
+--@author soldnotsold
+--@client
+--@include uilib/components/panel.txt
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+if not UILib.Panel then require("uilib/components/panel.txt") end
+
+---@class UILib.RGBPicker : UILib.Panel
+UILib.RGBPicker = class("RGBPicker", UILib.Panel)
+
+function UILib.RGBPicker:initialize(parent, screen)
+    UILib.Panel.initialize(self, parent, screen)
+
+    self.clippingEnabled = true
+    self:setSize(32, 200)
+
+    self.hue = 0
+    self.color = Color(255, 0, 0)
+
+    self.onChange = nil
+    self.dragging = false
+end
+
+
+function UILib.RGBPicker:setRGB(col)
+    if not col then return end
+    self.hue = Color(col):rgbToHSV() or 0
+    self.color = Color(self.hue, 1, 1):hsvToRGB()
+    self:_fireChange()
+end
+
+function UILib.RGBPicker:setColor(col)
+    self:setRGB(col)
+end
+
+function UILib.RGBPicker:getRGB()
+    return Color(self.color.r, self.color.g, self.color.b)
+end
+
+function UILib.RGBPicker:getColor()
+    return self:getRGB()
+end
+
+function UILib.RGBPicker:setHue(h)
+    self.hue = math.clamp(h or 0, 0, 360)
+    self.color = Color(self.hue, 1, 1):hsvToRGB()
+    self:_fireChange()
+end
+
+function UILib.RGBPicker:getHue()
+    return self.hue
+end
+
+
+function UILib.RGBPicker:_fireChange()
+    if self.onChange then
+        self:onChange(self:getRGB())
+    end
+end
+
+function UILib.RGBPicker:_draw()
+    local x, y, w, h = self.x, self.y, self.w, self.h
+
+    for i = 0, h - 1 do
+        local c = Color((i / h) * 360, 1, 1):hsvToRGB()
+        render.setColor(c)
+        render.drawRectFast(x, y + i, w, 1)
+    end
+
+    local selectorY = math.floor((self.hue / 360) * h)
+    render.setColor(Color(0, 0, 0))
+    render.drawRectFast(x - 2, y + selectorY - 3, w + 4, 7)
+    render.setColor(Color(255, 255, 255))
+    render.drawRectFast(x, y + selectorY - 1, w, 3)
+    render.setColor(Color(0,0,0))
+    render.drawRectOutline(x, y, w, h, 1)
+
+end
+
+function UILib.RGBPicker:onMousePressed(x, y, button)
+    print(x, " ", y)
+    if button == MOUSE.MOUSE1 then
+        self.dragging = true
+        local _, localY = self:posToLocal(x, y)
+        self:_updateFromY(localY)
+        return true
+    end
+    return false
+end
+
+function UILib.RGBPicker:onMouseReleased(x, y, button)
+    if button == MOUSE.MOUSE1 then
+        self.dragging = false
+    end
+end
+
+function UILib.RGBPicker:onMouseMoved(x, y)
+    if self.dragging then
+        local _, localY = self:posToLocal(x, y)
+        self:_updateFromY(localY)
+    end
+end
+
+function UILib.RGBPicker:_updateFromY(localY)
+    local newHue = math.clamp(localY / self.h * 360, 0, 360)
+    if math.abs(newHue - self.hue) > 0.1 then
+        self.hue = newHue
+        self.color = Color(self.hue, 1, 1):hsvToRGB()
+        self:_fireChange()
+    end
+end

@@ -1,0 +1,97 @@
+--@name UILib AlphaBar
+--@author soldnotsold
+--@client
+--@include uilib/components/panel.txt
+
+if not UILib then
+    throw("Import uilib/base first!")
+end
+if not UILib.Panel then require("uilib/components/panel.txt") end
+
+---@class UILib.AlphaBar : UILib.Panel
+UILib.AlphaBar = class("AlphaBar", UILib.Panel)
+
+function UILib.AlphaBar:initialize(parent, screen)
+    UILib.Panel.initialize(self, parent, screen)
+
+    self.clippingEnabled = true
+    self:setSize(28, 200)
+
+    self.baseColor = Color(255, 255, 255)
+    self.alpha = 255
+    self.dragging = false
+    self.onChange = nil
+end
+
+function UILib.AlphaBar:setColor(col)
+    if col then
+        self.baseColor = Color(col.r, col.g, col.b)
+    end
+end
+
+function UILib.AlphaBar:getColor()
+    return Color(self.baseColor.r, self.baseColor.g, self.baseColor.b, self.alpha)
+end
+
+function UILib.AlphaBar:setValue(val)
+    self.alpha = math.clamp(math.floor(val or 255), 0, 255)
+    self:_fireChange()
+end
+
+function UILib.AlphaBar:getValue()
+    return self.alpha
+end
+
+
+function UILib.AlphaBar:_fireChange()
+    if self.onChange then
+        self:onChange(self.alpha)
+    end
+end
+
+function UILib.AlphaBar:_draw()
+    local x, y, w, h = self.x, self.y, self.w, self.h
+
+    
+
+    local selectorY = math.floor((255 - self.alpha) / 255 * h)
+    render.setColor(Color(0, 0, 0))
+    render.drawRectFast(x - 3, y + selectorY - 4, w + 6, 8)
+
+    render.setColor(Color(255, 255, 255))
+    render.drawRectFast(x - 1, y + selectorY - 2, w + 2, 4)
+    
+    render.setColor(Color(0,0,0))
+    render.drawRectOutline(x, y, w, h, 1)
+end
+
+function UILib.AlphaBar:onMousePressed(x, y, button)
+    if button == MOUSE.MOUSE1 then
+        self.dragging = true
+        local _, localY = self:posToLocal(x, y)
+        self:_updateFromY(localY)
+        return true
+    end
+    return false
+end
+
+function UILib.AlphaBar:onMouseReleased(x, y, button)
+    if button == MOUSE.MOUSE1 then
+        self.dragging = false
+    end
+end
+
+function UILib.AlphaBar:onMouseMoved(x, y)
+    if self.dragging then
+        local _, localY = self:posToLocal(x, y)
+        self:_updateFromY(localY)
+    end
+end
+
+function UILib.AlphaBar:_updateFromY(localY)
+    local newAlpha = 255 - math.clamp(math.floor(localY / self.h * 255), 0, 255)
+    if newAlpha ~= self.alpha then
+        self.alpha = newAlpha
+        self:_fireChange()
+    end
+end
