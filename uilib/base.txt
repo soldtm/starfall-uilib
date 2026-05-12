@@ -1859,3 +1859,351 @@ function UILib.Component:moveToFront()
         end
     end
 end
+
+//local _TextureAtlas = class("TextureAtlas")
+
+---@class UILib.TextureAtlasDrawable: UILib.Component
+UILib.TextureAtlasDrawable = class("TextureAtlasDrawable", UILib.Component)
+
+function UILib.TextureAtlasDrawable:initialize(atlas, id, parent, screen)
+    self._atlas = atlas
+    self._id = id
+    local info = atlas:getImage(id)
+    UILib.Component.initialize(self, 0, 0, info.w, info.h, false, parent, screen)
+end
+
+function UILib.TextureAtlasDrawable:_draw()
+    self._atlas:draw(self._id, self.x, self.y, self.w, self.h)
+end
+
+function UILib.TextureAtlasDrawable:setSize(w, h)
+    UILib.Component.setSize(self, w, h)
+    return self
+end
+
+
+UILib.TextureAtlas = {
+    canvas_w = 1024,
+    canvas_h = 1024,
+    pages = {},
+    images = {}, // id -> {page = N, x, y, w, h}
+    next_id = 1,
+    next_page = 1
+}
+
+function UILib.TextureAtlas:reset()
+    self.pages = {}
+    self.images = {}
+    self.next_id = 1
+    self.next_page = 1
+end
+
+function UILib.TextureAtlas:_createDrawable(id, parent, screen)
+    return UILib.TextureAtlasDrawable(self, id, parent, screen)
+end
+
+
+function UILib.TextureAtlas:_addNewPage()
+    local name = "atlas_" .. self.next_page
+    self.next_page = self.next_page + 1
+    render.createRenderTarget(name)
+    table.insert(self.pages, {
+        name = name,
+        free = {{x = 0, y = 0, w = self.canvas_w, h = self.canvas_h}}
+    })
+    return #self.pages
+end
+
+function UILib.TextureAtlas:_placeInFreeList(freeList, w, h)
+    if w <= 0 or h <= 0 then return nil end
+    local bestIdx, bestArea = nil, math.huge
+    local bestRect = nil
+    for i, rect in ipairs(freeList) do
+        if w <= rect.w and h <= rect.h then
+            local area = rect.w * rect.h
+            if area < bestArea then
+                bestArea = area
+                bestIdx = i
+                bestRect = rect
+            end
+        end
+    end
+    if not bestIdx then return nil end
+    local x, y = bestRect.x, bestRect.y
+    table.remove(freeList, bestIdx)
+    if bestRect.w > w then
+        table.insert(freeList, {x = x + w, y = y, w = bestRect.w - w, h = h})
+    end
+    if bestRect.h > h then
+        table.insert(freeList, {x = x, y = y + h, w = bestRect.w, h = bestRect.h - h})
+    end
+    return {x = x, y = y, w = w, h = h}
+end
+
+function UILib.TextureAtlas:_repackWithNew(pageIdx, newW, newH)
+    local rects = {}
+    for id, img in pairs(self.images) do
+        if img.page == pageIdx then
+            table.insert(rects, {id = id, w = img.w, h = img.h})
+        end
+    end
+    table.insert(rects, {id = "new", w = newW, h = newH})
+    table.sort(rects, function(a, b)
+        return a.h > b.h or (a.h == b.h and a.w > b.w)
+    end)
+    local tempFree = {{x = 0, y = 0, w = self.canvas_w, h = self.canvas_h}}
+    local placements = {}
+    for _, r in ipairs(rects) do
+        local placed = self:_placeInFreeList(tempFree, r.w, r.h)
+        if not placed then
+            return nil
+        end
+        placements[r.id] = placed
+    end
+    local tempImgs = {}
+    for _, rect in pairs(placements) do
+        table.insert(tempImgs, rect)
+    end
+    for i = 1, #tempImgs do
+        for j = i + 1, #tempImgs do
+            local a, b = tempImgs[i], tempImgs[j]
+            if not (a.x >= b.x + b.w or a.x + a.w <= b.x or
+                    a.y >= b.y + b.h or a.y + a.h <= b.y) then
+                return nil
+            end
+        end
+    end
+    return placements, tempFree
+end
+
+function UILib.TextureAtlas:addBlank(w, h, parent, screen)
+    if w <= 0 or h <= 0 or w > self.canvas_w or h > self.canvas_h then
+        return nil
+    end
+    for p = 1, #self.pages do
+        local rect = self:_placeInFreeList(self.pages[p].free, w, h)
+        if rect then
+            local id = self.next_id
+            self.next_id = id + 1
+            self.images[id] = {page = p, x = rect.x, y = rect.y, w = w, h = h}
+            return self:_createDrawable(id, parent, screen)
+        end
+    end
+    for p = 1, #self.pages do
+        local newPlacements, newFree = self:_repackWithNew(p, w, h)
+        if newPlacements then
+            local oldPlacements = {}
+            for id, img in pairs(self.images) do
+                if img.page == p then
+                    oldPlacements[id] = {x = img.x, y = img.y, w = img.w, h = img.h}
+                end
+            end
+
+            for id, newRect in pairs(newPlacements) do
+                if id ~= "new" then
+                    local old = self.images[id]
+                    self.images[id] = {
+                        page = old.page,
+                        x = newRect.x,
+                        y = newRect.y,
+                        w = newRect.w,
+                        h = newRect.h
+                    }
+                end
+            end
+            local newId = self.next_id
+            self.next_id = newId + 1
+            local nr = newPlacements["new"]
+            self.images[newId] = {page = p, x = nr.x, y = nr.y, w = nr.w, h = nr.h}
+
+            local atlasName = self.pages[p].name
+            render.createRenderTarget("UILib_packer_buf")
+            
+            hook.add("RenderOffScreen", "UILib_packer_defrag", function()
+                print("defrag")
+                render.selectRenderTarget("UILib_packer_buf") -- putting into buf
+                render.setRenderTargetTexture(atlasName)
+                render.drawTexturedRect(0, 0, 1024, 1024)
+    
+                render.selectRenderTarget(atlasName) --sel atlas
+                render.clear(Color(0,0,0,0))   -- clr atlas
+                
+                render.setRenderTargetTexture("UILib_packer_buf") --drawing from buf
+                for id, img in pairs(self.images) do
+                    if img.page == p then
+                        local oldRect = oldPlacements[id]
+                        if oldRect then
+                            local startU = oldRect.x / 1024
+                            local startV = oldRect.y / 1024
+                            local endU   = (oldRect.x + oldRect.w) / 1024
+                            local endV   = (oldRect.y + oldRect.h) / 1024
+    
+                            render.drawTexturedRectUV(
+                                img.x, img.y, img.w, img.h,
+                                startU, startV, endU, endV
+                            ) -- drawing from buf
+                        end
+                    end
+                end
+                hook.remove("RenderOffScreen", "defrag")
+                render.destroyRenderTarget("UILib_packer_buf")
+                
+            end)
+
+            self.pages[p].free = newFree
+            self:_mergeFree(p)
+            return self:_createDrawable(newId, parent, screen)
+        end
+    end
+    local p = self:_addNewPage()
+    local rect = self:_placeInFreeList(self.pages[p].free, w, h)
+    local id = self.next_id
+    self.next_id = id + 1
+    self.images[id] = {page = p, x = rect.x, y = rect.y, w = w, h = h}
+    return self:_createDrawable(id, parent, screen)
+end
+
+function UILib.TextureAtlas:remove(id)
+    local data = self.images[id]
+    if not data then return false end
+    local page = self.pages[data.page]
+    table.insert(page.free, {x = data.x, y = data.y, w = data.w, h = data.h})
+    self.images[id] = nil
+    self:_mergeFree(data.page)
+    return true
+end
+
+function UILib.TextureAtlas:_mergeFree(pageIdx)
+    local free = self.pages[pageIdx].free
+    local changed = true
+
+    while changed do
+        changed = false
+        local i = #free
+        while i > 1 do
+            local a = free[i]
+            local merged = false
+            for j = i - 1, 1, -1 do
+                local b = free[j]
+                if a.y == b.y and a.h == b.h then
+                    if a.x + a.w == b.x then
+                        b.x = a.x
+                        b.w = a.w + b.w
+                        merged = true
+                    elseif b.x + b.w == a.x then
+                        b.w = a.w + b.w
+                        merged = true
+                    end
+                elseif a.x == b.x and a.w == b.w then
+                    if a.y + a.h == b.y then
+                        b.y = a.y
+                        b.h = a.h + b.h
+                        merged = true
+                    elseif b.y + b.h == a.y then
+                        b.h = a.h + b.h
+                        merged = true
+                    end
+                end
+                if merged then
+                    free[i] = free[#free]
+                    free[#free] = nil
+                    changed = true
+                    break
+                end
+            end
+            i = i - 1
+        end
+    end
+end
+
+function UILib.TextureAtlas:getImage(id)
+    local data = self.images[id]
+    if not data then return nil end
+    local page = self.pages[data.page]
+    return {x = data.x, y = data.y, w = data.w, h = data.h, rt = page.name}
+end
+
+function UILib.TextureAtlas:getAllImages()
+    local result = {}
+    for id, data in pairs(self.images) do
+        local page = self.pages[data.page]
+        result[id] = {x = data.x, y = data.y, w = data.w, h = data.h, rt = page.name}
+    end
+    return result
+end
+
+function UILib.TextureAtlas:selectRenderTarget(drawable)
+    local data = self.images[drawable._id]
+    if not data then return end
+    local page = self.pages[data.page]
+    render.selectRenderTarget(page.name)
+end
+
+function UILib.TextureAtlas:addMaterial(path, parent, screen)
+    local mat = material.load(path)
+    if not mat then return nil end
+    local w = mat:getWidth()
+    local h = mat:getHeight()
+    if w <= 0 or h <= 0 then
+        mat:destroy()
+        return nil
+    end
+    local drawable = self:addBlank(w, h, parent, screen)
+    if not drawable then
+        mat:destroy()
+        return nil
+    end
+    local info = self:getImage(drawable._id)
+    local hookName = "packer_atlas_draw_" .. drawable._id
+    hook.add("RenderOffScreen", hookName, function()
+        render.selectRenderTarget(info.rt)
+        render.setMaterial(mat)
+        render.drawTexturedRect(info.x, info.y, info.w, info.h)
+        hook.remove("RenderOffScreen", hookName)
+    end)
+    mat:destroy()
+    return drawable
+end
+
+
+function UILib.TextureAtlas:addImage(path, parent, screen)
+    local mat = material.createFromImage(path, "") //TODO
+    if not mat then return nil end
+    local w = mat:getWidth()
+    local h = mat:getHeight()
+    if w <= 0 or h <= 0 then
+        mat:destroy()
+        return nil
+    end
+    local drawable = self:addBlank(w, h, parent, screen)
+    if not drawable then
+        mat:destroy()
+        return nil
+    end
+    local info = self:getImage(drawable._id)
+    local hookName = "packer_atlas_draw_" .. drawable._id
+    hook.add("RenderOffScreen", hookName, function()
+        render.selectRenderTarget(info.rt)
+        render.setMaterial(mat)
+        render.drawTexturedRect(info.x, info.y, info.w, info.h)
+        hook.remove("RenderOffScreen", hookName)
+    end)
+    mat:destroy()
+    return drawable
+end
+
+
+function UILib.TextureAtlas:draw(id, x, y, w, h)
+    local info = self:getImage(id)
+    if not info then return end
+    local atlasW = 1024
+    local atlasH = 1024
+    local startU = info.x / atlasW
+    local startV = info.y / atlasH
+    local endU = (info.x + info.w) / atlasW
+    local endV = (info.y + info.h) / atlasH
+    render.setRenderTargetTexture(info.rt)
+    render.drawTexturedRectUV(x, y, w, h, startU, startV, endU, endV)
+end
+
+
