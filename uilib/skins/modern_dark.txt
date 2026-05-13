@@ -11,14 +11,14 @@ ModernSkin.Component = {
     borderColor = Color(71, 85, 105),         
     borderWidth = 1,
     cornerRadius = 8,
-    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    font = UILib.createFont("Trebuchet", 14, 400, false, false, false, false, 0, false, 0),
     padding = 12,
     margin = 8
 }
 
 ModernSkin.Label = {
     textColor = Color(248, 250, 252),
-    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    font = UILib.createFont("Trebuchet", 14, 400, false, false, false, false, 0, false, 0),
 }
 
 ModernSkin.Button = {
@@ -30,7 +30,7 @@ ModernSkin.Button = {
     borderPressedColor = Color(29, 78, 216),
     borderWidth = 1,
     cornerRadius = 8,
-    font = UILib.createFont("Coolvetica", 14, 500, false, false, false, false, 0, false, 0),
+    font = UILib.createFont("Trebuchet", 14, 500, false, false, false, false, 0, false, 0),
     padding = 12,
     margin = ModernSkin.Component.margin
 }
@@ -51,7 +51,7 @@ ModernSkin.Panel = {
     panelTopHeight = 48,
     panelTopColor = Color(30, 41, 59),
     panelTopTextColor = Color(248, 250, 252),
-    panelTopFont = UILib.createFont("Coolvetica", 16, 600, false, false, false, false, 0, false, 0),
+    panelTopFont = UILib.createFont("Trebuchet", 16, 600, false, false, false, false, 0, false, 0),
     panelTopPad = 16
 }
 
@@ -83,7 +83,7 @@ ModernSkin.ProgressBar = {
     borderColor = Color(71, 85, 105),
     borderWidth = 0,
     cornerRadius = 6,
-    font = UILib.createFont("Coolvetica", 12, 500, false, false, false, false, 0, false, 0),
+    font = UILib.createFont("Trebuchet", 12, 500, false, false, false, false, 0, false, 0),
     padding = ModernSkin.Component.padding,
     margin = ModernSkin.Component.margin,
     height = 24,
@@ -154,7 +154,7 @@ ModernSkin.PropertySheet = {
     padding = ModernSkin.Panel.padding,    
     headerBackgroundColor = Color(15, 23, 42), 
     headerTextColor = Color(248, 250, 252),     
-    headerFont = UILib.createFont("Coolvetica", 16, 600, false, false, false, false, 0, false, 0),
+    headerFont = UILib.createFont("Trebuchet", 16, 600, false, false, false, false, 0, false, 0),
     tabHeight = 40,
     tabBackgroundColor = Color(30, 41, 59),     
     tabHoverColor = Color(51, 65, 85),          
@@ -182,7 +182,7 @@ ModernSkin.Checkbox = {
     borderWidth = 1,
     cornerRadius = 4,
     textColor = Color(248, 250, 252),   
-    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    font = UILib.createFont("Trebuchet", 14, 400, false, false, false, false, 0, false, 0),
     textPadding = 10
 }
 
@@ -200,7 +200,7 @@ ModernSkin.RadioButton = {
     dotHoverColor = Color(37, 99, 235),
     borderWidth = 2,
     textColor = Color(248, 250, 252),            
-    font = UILib.createFont("Coolvetica", 14, 400, false, false, false, false, 0, false, 0),
+    font = UILib.createFont("Trebuchet", 14, 400, false, false, false, false, 0, false, 0),
     textPadding = 10
 }
 
@@ -216,7 +216,7 @@ ModernSkin.Marquee = {
 
 ModernSkin.TextMarquee = {
     textColor = Color(248, 250, 252),
-    font = UILib.createFont("Coolvetica", 16, 500, false, false, false, false, 0, false, 0),
+    font = UILib.createFont("Trebuchet", 16, 500, false, false, false, false, 0, false, 0),
     spacing = 0
 }
 
