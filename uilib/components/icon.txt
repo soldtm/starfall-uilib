@@ -23,59 +23,49 @@ local render = render
 UILib.Icon = class("Icon", UILib.Component)
 
 function UILib.Icon:initialize(parent, screen)
-    self.size = 32 
-    UILib.Component.initialize(self, 0, 0, self.size, self.size, false, parent, screen)
+    UILib.Component.initialize(self, 0, 0, 32, 32, false, parent, screen)
     
-    self.material = nil
+    self._atlasDrawable = nil
 end
 
 
-function UILib.Icon:setMaterial(material)
-    self.material = material
+function UILib.Icon:setMaterial(path)
+    if self._atlasDrawable then
+        UILib.TextureAtlas:remove(self._atlasDrawable._id)
+        self._atlasDrawable = nil
+    end
+    self._atlasDrawable = UILib.TextureAtlas:addMaterial(path, self, nil, self.w, self.h)
     return self
 end
 
-function UILib.Icon:ensureValidMaterial()
-    if not self.material then
-        self.material = material.create("UnlitGeneric")
-    end    
-end
-
-function UILib.Icon:setTexture(texture, textureKey)
-    self:ensureValidMaterial()
-    
-    local textureKey = textureKey or "$basetexture"
-    self.material:setTexture(textureKey, texture)
-end
-
 function UILib.Icon:setImage(path)
-    if self.material then self.material:destroy() end
-    self.material = material.createFromImage(path, "")
+    if self._atlasDrawable then
+        UILib.TextureAtlas:remove(self._atlasDrawable._id)
+        self._atlasDrawable = nil
+    end
+    self._atlasDrawable = UILib.TextureAtlas:addImage(path, self, nil, self.w, self.h)
+    return self
 end
 
 function UILib.Icon:setTextureURL(url)
-    self:ensureValidMaterial()
-    pcall(function()
-        self.material:setTextureURL( "$basetexture", url, function( _, _, width, height, layout )
-            if layout then
-                local scaler = math.max( width, height )
-                local ratio = ( 1024 / scaler )
-                layout( 0, 0, ratio * width, ratio * height )
-            end
-        end)
-    end)
-end
-
-function UILib.Icon:setSize(w, h)
-    if h == nil then h = w end
-    UILib.Component.setSize(self, w, h)
+    if self._atlasDrawable then
+        UILib.TextureAtlas:remove(self._atlasDrawable._id)
+        self._atlasDrawable = nil
+    end
+    self._atlasDrawable = UILib.TextureAtlas:addTextureURL(url, self, nil, self.w, self.h)
     return self
 end
 
 
 function UILib.Icon:_draw()
-    if not self.material then return end
-    render.setColor(Color(255,255,255))
-    render.setMaterial(self.material)
-    render.drawTexturedRectFast(self.x, self.y, self.w, self.h)
+    if not self._atlasDrawable then return end
+    self._atlasDrawable:_draw()
+end
+
+function UILib.Icon:destroy()
+    if self._atlasDrawable then
+        UILib.TextureAtlas:remove(self._atlasDrawable._id)
+        self._atlasDrawable = nil
+    end
+    UILib.Component.destroy(self)
 end
