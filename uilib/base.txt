@@ -54,13 +54,23 @@ end
 
 function material.create(shader)
     local mat = oldCreateMaterial(shader)    
-    table.insert(UILib.knownMaterials, mat)   
+    table.insert(UILib.knownMaterials, mat)
+    mat.origDestroy = mat.destroy
+    function mat:destroy()
+        table.removeByValue(UILib.knownMaterials, mat)
+        mat:origDestroy()
+    end
     return mat 
 end
 
 function material.createFromImage(path, params)
     local mat = oldCreateMaterialFromImage(path, params)
     table.insert(UILib.knownMaterials, mat)    
+    mat.origDestroy = mat.destroy
+    function mat:destroy()
+        table.removeByValue(UILib.knownMaterials, mat)
+        mat:origDestroy()
+    end
     return mat    
 end
 
@@ -1621,6 +1631,7 @@ end
 function UILib.Component:setSize(w,h)
     if w then self:setWidth(w) end
     if h then self:setHeight(h) end
+    if not h and w then self:setHeight(w) end
 end
 
 ---Internal input event handlers
@@ -1902,11 +1913,26 @@ function UILib.TextureAtlas:_createDrawable(id, parent, screen)
     return UILib.TextureAtlasDrawable(self, id, parent, screen)
 end
 
+function UILib.TextureAtlas:_resolveSize(nW, nH, oW, oH)
+    local w = nW or oW
+    local h = nH or (nW and nW) or oH
+    return w, h
+end
+
 
 function UILib.TextureAtlas:_addNewPage()
+    debugprint("[atlas] added page "..self.next_page)
     local name = "atlas_" .. self.next_page
     self.next_page = self.next_page + 1
     render.createRenderTarget(name)
+    local hookname = "UILib_ta_clp_"..self.next_page
+    hook.add("RenderOffScreen", hookname, function()
+        //render.selectRenderTarget(name)
+        //render.clear(Color(0, 0, 0, 0), true, true)
+        //render.setColor(Color(0,0,0,255))
+        //render.drawRect(0,0,1024,1024)
+        hook.remove("RenderOffScreen", hookname)
+    end)
     table.insert(self.pages, {
         name = name,
         free = {{x = 0, y = 0, w = self.canvas_w, h = self.canvas_h}}
@@ -2020,14 +2046,13 @@ function UILib.TextureAtlas:addBlank(w, h, parent, screen)
             render.createRenderTarget("UILib_packer_buf")
             
             hook.add("RenderOffScreen", "UILib_packer_defrag", function()
-                print("defrag")
+                debugprint("defrag")
                 render.selectRenderTarget("UILib_packer_buf") -- putting into buf
                 render.setRenderTargetTexture(atlasName)
                 render.drawTexturedRect(0, 0, 1024, 1024)
     
                 render.selectRenderTarget(atlasName) --sel atlas
                 render.clear(Color(0,0,0,0))   -- clr atlas
-                
                 render.setRenderTargetTexture("UILib_packer_buf") --drawing from buf
                 for id, img in pairs(self.images) do
                     if img.page == p then
@@ -2064,6 +2089,7 @@ function UILib.TextureAtlas:addBlank(w, h, parent, screen)
 end
 
 function UILib.TextureAtlas:remove(id)
+    debugprint("[atlas] del "..id)
     local data = self.images[id]
     if not data then return false end
     local page = self.pages[data.page]
@@ -2139,34 +2165,37 @@ function UILib.TextureAtlas:selectRenderTarget(drawable)
     render.selectRenderTarget(page.name)
 end
 
-function UILib.TextureAtlas:addMaterial(path, parent, screen)
-    local mat = material.load(path)
-    if not mat then return nil end
+function UILib.TextureAtlas:addMaterial(path, parent, screen, slotW, slotH)
+    debugprint("[atlas] adding mat "..path)
+    local mat = material.create("UnlitGeneric")
+    mat:setTexture("$basetexture", path)
+
     local w = mat:getWidth()
     local h = mat:getHeight()
-    if w <= 0 or h <= 0 then
-        mat:destroy()
-        return nil
-    end
-    local drawable = self:addBlank(w, h, parent, screen)
+
+    local aw, ah = self:_resolveSize(slotW, slotH, w, h)
+    local drawable = self:addBlank(aw, ah, parent, screen)
     if not drawable then
         mat:destroy()
+        debugprint("[packer] no drawable?")
         return nil
     end
     local info = self:getImage(drawable._id)
     local hookName = "packer_atlas_draw_" .. drawable._id
     hook.add("RenderOffScreen", hookName, function()
+        render.setColor(Color(255,255,255,255))
         render.selectRenderTarget(info.rt)
         render.setMaterial(mat)
         render.drawTexturedRect(info.x, info.y, info.w, info.h)
         hook.remove("RenderOffScreen", hookName)
     end)
-    mat:destroy()
+    //mat:destroy() //TODO propIconLib type shit
     return drawable
 end
 
 
-function UILib.TextureAtlas:addImage(path, parent, screen)
+function UILib.TextureAtlas:addImage(path, parent, screen, slotW, slotH)
+    debugprint("[atlas] adding img "..path)
     local mat = material.createFromImage(path, "") //TODO
     if not mat then return nil end
     local w = mat:getWidth()
@@ -2175,7 +2204,8 @@ function UILib.TextureAtlas:addImage(path, parent, screen)
         mat:destroy()
         return nil
     end
-    local drawable = self:addBlank(w, h, parent, screen)
+    local aw, ah = self:_resolveSize(slotW, slotH, w, h)
+    local drawable = self:addBlank(aw, ah, parent, screen)
     if not drawable then
         mat:destroy()
         return nil
@@ -2185,6 +2215,7 @@ function UILib.TextureAtlas:addImage(path, parent, screen)
     hook.add("RenderOffScreen", hookName, function()
         render.selectRenderTarget(info.rt)
         render.setMaterial(mat)
+        --render.setColor(Color(0,0,0,255))
         render.drawTexturedRect(info.x, info.y, info.w, info.h)
         hook.remove("RenderOffScreen", hookName)
     end)
@@ -2206,4 +2237,42 @@ function UILib.TextureAtlas:draw(id, x, y, w, h)
     render.drawTexturedRectUV(x, y, w, h, startU, startV, endU, endV)
 end
 
+function UILib.TextureAtlas:addTextureURL(url, parent, screen, slotW, slotH)
+    debugprint("[atlas] adding texture URL "..url)
+    local mat = material.create("UnlitGeneric")
+    if not mat then return nil end
 
+    local aw, ah = self:_resolveSize(slotW, slotH, 64, 64)
+    local drawable = self:addBlank(aw, ah, parent, screen)
+    if not drawable then
+        mat:destroy()
+        return nil
+    end
+
+
+    pcall(function()
+        mat:setTextureURL("$basetexture", url, function(_mat, url, rawW, rawH, layout)
+            if not layout then
+                mat:destroy()
+                return
+            end
+
+            local scaler = math.max(rawW, rawH)
+            local ratio = 1024 / scaler
+            local w = math.floor(ratio * rawW)
+            local h = math.floor(ratio * rawH)
+            layout(0, 0, w, h)
+            local info = self:getImage(drawable._id)
+            local hookName = "packer_atlas_url_" .. drawable._id
+            hook.add("RenderOffScreen", hookName, function()
+                render.selectRenderTarget(info.rt)
+                render.setMaterial(mat)
+                render.drawTexturedRect(info.x, info.y, info.w, info.h)
+                hook.remove("RenderOffScreen", hookName)
+            end)
+            mat:destroy()
+        end)
+    end)
+
+    return drawable
+end
