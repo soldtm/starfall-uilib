@@ -1899,7 +1899,11 @@ UILib.TextureAtlas = {
     pages = {},
     images = {}, // id -> {page = N, x, y, w, h}
     next_id = 1,
-    next_page = 1
+    next_page = 1,
+    _drawQueue = {},
+    _queueBatchSize = 5,
+    _queueProcessing = false,
+    _frameCounter = 0
 }
 
 function UILib.TextureAtlas:reset()
@@ -1907,6 +1911,49 @@ function UILib.TextureAtlas:reset()
     self.images = {}
     self.next_id = 1
     self.next_page = 1
+end
+
+function UILib.TextureAtlas:setQueueBatchSize(n)
+    self._queueBatchSize = math.max(1, n)
+end
+
+function UILib.TextureAtlas:_enqueueDraw(rt, x, y, w, h, mat, id)
+    table.insert(self._drawQueue, {rt = rt, x = x, y = y, w = w, h = h, mat = mat, id = id})
+    self:_scheduleQueueProcessing()
+end
+
+function UILib.TextureAtlas:_scheduleQueueProcessing()
+    if self._queueProcessing then return end
+    self._queueProcessing = true
+
+    hook.add("RenderOffScreen", "UILib_packer_queue_draw", function()
+        self._queueProcessing = false
+        hook.remove("RenderOffScreen", "UILib_packer_queue_draw")
+
+        self._frameCounter = self._frameCounter + 1
+        if self._frameCounter < 30 then
+            if #self._drawQueue > 0 then
+                self:_scheduleQueueProcessing()
+            end
+            return
+        end
+
+        local c = 0
+        while #self._drawQueue > 0 and count < self._queueBatchSize do
+            local entry = table.remove(self._drawQueue, 1)
+            if entry then
+                render.selectRenderTarget(entry.rt)
+                render.setMaterial(entry.mat)
+                render.drawTexturedRect(entry.x, entry.y, entry.w, entry.h)
+                entry.mat:destroy()
+            end
+            c = c + 1
+        end
+
+        if #self._drawQueue > 0 then
+            self:_scheduleQueueProcessing()
+        end
+    end)
 end
 
 function UILib.TextureAtlas:_createDrawable(id, parent, screen)
@@ -2090,6 +2137,12 @@ end
 
 function UILib.TextureAtlas:remove(id)
     debugprint("[atlas] del "..id)
+    for i = #self._drawQueue, 1, -1 do
+        if self._drawQueue[i].id == id then
+            self._drawQueue[i].mat:destroy()
+            table.remove(self._drawQueue, i)
+        end
+    end
     local data = self.images[id]
     if not data then return false end
     local page = self.pages[data.page]
@@ -2181,15 +2234,7 @@ function UILib.TextureAtlas:addMaterial(path, parent, screen, slotW, slotH)
         return nil
     end
     local info = self:getImage(drawable._id)
-    local hookName = "packer_atlas_draw_" .. drawable._id
-    hook.add("RenderOffScreen", hookName, function()
-        render.setColor(Color(255,255,255,255))
-        render.selectRenderTarget(info.rt)
-        render.setMaterial(mat)
-        render.drawTexturedRect(info.x, info.y, info.w, info.h)
-        hook.remove("RenderOffScreen", hookName)
-    end)
-    //mat:destroy() //TODO propIconLib type shit
+    self:_enqueueDraw(info.rt, info.x, info.y, info.w, info.h, mat, drawable._id)
     return drawable
 end
 
@@ -2211,14 +2256,7 @@ function UILib.TextureAtlas:addImage(path, parent, screen, slotW, slotH)
         return nil
     end
     local info = self:getImage(drawable._id)
-    local hookName = "packer_atlas_draw_" .. drawable._id
-    hook.add("RenderOffScreen", hookName, function()
-        render.selectRenderTarget(info.rt)
-        render.setMaterial(mat)
-        --render.setColor(Color(0,0,0,255))
-        render.drawTexturedRect(info.x, info.y, info.w, info.h)
-        hook.remove("RenderOffScreen", hookName)
-    end)
+    self:_enqueueDraw(info.rt, info.x, info.y, info.w, info.h, mat, drawable._id)
     mat:destroy()
     return drawable
 end
@@ -2263,14 +2301,7 @@ function UILib.TextureAtlas:addTextureURL(url, parent, screen, slotW, slotH)
             local h = math.floor(ratio * rawH)
             layout(0, 0, w, h)
             local info = self:getImage(drawable._id)
-            local hookName = "packer_atlas_url_" .. drawable._id
-            hook.add("RenderOffScreen", hookName, function()
-                render.selectRenderTarget(info.rt)
-                render.setMaterial(mat)
-                render.drawTexturedRect(info.x, info.y, info.w, info.h)
-                hook.remove("RenderOffScreen", hookName)
-            end)
-            mat:destroy()
+            self:_enqueueDraw(info.rt, info.x, info.y, info.w, info.h, mat, drawable._id)
         end)
     end)
 
