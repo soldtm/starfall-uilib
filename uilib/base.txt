@@ -1939,7 +1939,7 @@ function UILib.TextureAtlas:_scheduleQueueProcessing()
         end
 
         local c = 0
-        while #self._drawQueue > 0 and count < self._queueBatchSize do
+        while #self._drawQueue > 0 and c < self._queueBatchSize do
             local entry = table.remove(self._drawQueue, 1)
             if entry then
                 render.selectRenderTarget(entry.rt)
@@ -1974,10 +1974,8 @@ function UILib.TextureAtlas:_addNewPage()
     render.createRenderTarget(name)
     local hookname = "UILib_ta_clp_"..self.next_page
     hook.add("RenderOffScreen", hookname, function()
-        //render.selectRenderTarget(name)
-        //render.clear(Color(0, 0, 0, 0), true, true)
-        //render.setColor(Color(0,0,0,255))
-        //render.drawRect(0,0,1024,1024)
+        render.selectRenderTarget(name)
+        render.clear(Color(0, 0, 0, 0), true, true)
         hook.remove("RenderOffScreen", hookname)
     end)
     table.insert(self.pages, {
@@ -2105,10 +2103,10 @@ function UILib.TextureAtlas:addBlank(w, h, parent, screen)
                     if img.page == p then
                         local oldRect = oldPlacements[id]
                         if oldRect then
-                            local startU = oldRect.x / 1024
-                            local startV = oldRect.y / 1024
-                            local endU   = (oldRect.x + oldRect.w) / 1024
-                            local endV   = (oldRect.y + oldRect.h) / 1024
+                            local startU = (oldRect.x + 0.5) / 1024
+                            local startV = (oldRect.y + 0.5) / 1024
+                            local endU   = (oldRect.x + oldRect.w - 0.5) / 1024
+                            local endV   = (oldRect.y + oldRect.h - 0.5) / 1024
     
                             render.drawTexturedRectUV(
                                 img.x, img.y, img.w, img.h,
@@ -2267,10 +2265,10 @@ function UILib.TextureAtlas:draw(id, x, y, w, h)
     if not info then return end
     local atlasW = 1024
     local atlasH = 1024
-    local startU = info.x / atlasW
-    local startV = info.y / atlasH
-    local endU = (info.x + info.w) / atlasW
-    local endV = (info.y + info.h) / atlasH
+    local startU = (info.x + 0.5) / atlasW
+    local startV = (info.y + 0.5) / atlasH
+    local endU = (info.x + info.w - 0.5) / atlasW
+    local endV = (info.y + info.h - 0.5) / atlasH
     render.setRenderTargetTexture(info.rt)
     render.drawTexturedRectUV(x, y, w, h, startU, startV, endU, endV)
 end
