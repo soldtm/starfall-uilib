@@ -10,3 +10,4 @@ Minify files?
 Rework skin layout? > Skin properties for colors of disabled components > Move color related checks out of render
 Name methods similar to derma
 Refactor & make logic more similar to derma
+TA custom drawables
